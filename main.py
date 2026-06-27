@@ -27,8 +27,8 @@ async def handle_post_events(request: web.Request) -> web.Response:
             return web.json_response({"ok": False, "error": "empty text"}, status=400)
         event_id = await replace_current_week_events(text)
         logger.info("Events replaced via HTTP — new event #%d", event_id)
-        # Persist to GitHub in background (survives redeploys)
-        asyncio.create_task(save_events(text))
+        # Persist to GitHub — await ensures save completes before responding
+        await save_events(text)
         return web.json_response({"ok": True, "event_id": event_id})
     except Exception as e:
         logger.exception("Error in /events endpoint")
