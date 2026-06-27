@@ -40,7 +40,6 @@ async def init_db() -> None:
 
 
 async def get_language(user_id: int) -> str | None:
-    """Returns user's language or None if user not in DB yet."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT language FROM users WHERE user_id = ?", (user_id,)
@@ -78,12 +77,19 @@ async def save_event(week: int, year: int, text: str) -> int:
         return cursor.lastrowid
 
 
-async def get_events(week_offset: int = 0) -> list[dict]:
-    week, year = _week_year(week_offset)
+async def get_latest_events() -> list[dict]:
+    """Return events from the most recent week available in the DB."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT id, text FROM events WHERE week = ? AND year = ? ORDER BY id",
-            (week, year),
+            "SELECT year, week FROM events ORDER BY year DESC, week DESC LIMIT 1"
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return []
+            year, week = row[0], row[1]
+        async with db.execute(
+            "SELECT id, text FROM events WHERE year = ? AND week = ? ORDER BY id",
+            (year, week),
         ) as cursor:
             rows = await cursor.fetchall()
             return [{"id": r[0], "text": r[1]} for r in rows]
