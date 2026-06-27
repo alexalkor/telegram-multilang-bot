@@ -10,6 +10,10 @@ CHUNK_SIZE  = 4500   # MyMemory limit is 5000; stay safe
 
 # MyMemory uses different lang codes for some languages
 _MYMEMORY_CODES = {
+    "ru": "ru-RU",
+    "en": "en-GB",
+    "pl": "pl-PL",
+    "de": "de-DE",
     "be": "be-BY",
     "uk": "uk-UA",
 }
