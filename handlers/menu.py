@@ -9,8 +9,22 @@ from utils.translator import translate
 
 router = Router()
 
-MAX_ITEMS = 20      # safety cap
-MAX_MSG   = 4090    # Telegram hard limit is 4096; leave a small margin
+BATCH_SIZE = 10
+MAX_MSG    = 4090
+
+
+def _parse_events(text: str) -> tuple[str | None, list[str]]:
+    """Split stored events blob into (date_range_or_None, [event_items]).
+
+    The first paragraph is treated as a date range if it does NOT start
+    with a digit (i.e. it's not a numbered event like '1. 🎭 ...').
+    """
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    if not paragraphs:
+        return None, []
+    if paragraphs[0][:1].isdigit():
+        return None, paragraphs          # no date-range prefix
+    return paragraphs[0], paragraphs[1:] # first block is date range
 
 
 async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
@@ -20,24 +34,29 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
         await callback.answer(t(lang, "no_events"), show_alert=True)
         return
 
-    await callback.message.answer(t(lang, "events_header"))
-
     for event in events:
-        # 1. Get (or create) the translated version of the full blob
+        # Get or build the translated blob
         translated = await get_translation(event["id"], lang)
         if translated is None:
             translated = await translate(event["text"], lang)
             await save_translation(event["id"], lang, translated)
 
-        # 2. Split by double-newline — each paragraph = one event card
-        #    (matches the scraper's "1. 🎭 ...\n📍...\n🕐...\n💰..." format)
-        items = [p.strip() for p in translated.split("\n\n") if p.strip()]
+        date_range, items = _parse_events(translated)
 
-        # 3. Send each item as its own message (Telegram safe length)
-        for item in items[:MAX_ITEMS]:
-            if len(item) > MAX_MSG:
-                item = item[:MAX_MSG - 3] + "..."
-            await callback.message.answer(item)
+        # Message 1 — header with date range
+        if date_range:
+            header = f"📅 <b>Latest events in Warsaw:</b>\n{date_range}"
+        else:
+            header = "📅 <b>Latest events in Warsaw:</b>"
+        await callback.message.answer(header)
+
+        # Messages 2+ — batches of up to 10 events joined by double newline
+        for i in range(0, len(items), BATCH_SIZE):
+            batch = items[i : i + BATCH_SIZE]
+            text_out = "\n\n".join(batch)
+            if len(text_out) > MAX_MSG:
+                text_out = text_out[:MAX_MSG - 3] + "..."
+            await callback.message.answer(text_out)
 
 
 @router.callback_query(F.data == "menu:events")

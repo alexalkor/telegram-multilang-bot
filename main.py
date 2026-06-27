@@ -26,10 +26,12 @@ async def handle_post_events(request: web.Request) -> web.Response:
         text = data.get("text", "").strip()
         if not text:
             return web.json_response({"ok": False, "error": "empty text"}, status=400)
-        event_id = await replace_current_week_events(text)
-        gh_status, gh_msg = await save_events(text)
+        date_range = data.get("date_range", "").strip()
+        stored_text = f"{date_range}\n\n{text}" if date_range else text
+        event_id = await replace_current_week_events(stored_text)
+        gh_status, gh_msg = await save_events(stored_text)
         logger.info("Event #%d saved; GitHub: %d %s", event_id, gh_status, gh_msg[:80])
-        return web.json_response({"ok": True, "event_id": event_id, "text_preview": text[:80],
+        return web.json_response({"ok": True, "event_id": event_id,
                                   "github_status": gh_status, "github_msg": gh_msg[:200]})
     except Exception as e:
         logger.exception("Error in /events endpoint")
