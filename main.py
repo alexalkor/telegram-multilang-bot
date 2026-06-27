@@ -8,13 +8,13 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
 from config.settings import BOT_TOKEN, WEBHOOK_SECRET, PORT
-from database.db import init_db, replace_current_week_events, append_to_week_events, get_latest_events
+from database.db import init_db, replace_current_week_events, append_to_week_events, get_latest_events, clear_all_translations
 from database.github_storage import fetch_events, save_events
 from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v7-textpreview"
+VERSION = "v8-translation-fix"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -44,6 +44,16 @@ async def handle_post_events(request: web.Request) -> web.Response:
     except Exception as e:
         logger.exception("Error in /events endpoint")
         return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+
+async def handle_clear_cache(request: web.Request) -> web.Response:
+    """Wipe all cached translations so they get re-fetched on next request."""
+    secret = request.headers.get("X-Secret", "")
+    if not WEBHOOK_SECRET or secret != WEBHOOK_SECRET:
+        return web.Response(status=401, text="Unauthorized")
+    count = await clear_all_translations()
+    logger.info("Cleared %d cached translations via HTTP", count)
+    return web.json_response({"ok": True, "cleared": count})
 
 
 async def handle_health(request: web.Request) -> web.Response:
@@ -81,6 +91,7 @@ async def main() -> None:
     app.router.add_get("/health", handle_health)
     app.router.add_get("/debug",  handle_debug)
     app.router.add_post("/events", handle_post_events)
+    app.router.add_post("/admin/clear-cache", handle_clear_cache)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)

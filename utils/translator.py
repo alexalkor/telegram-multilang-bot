@@ -6,6 +6,15 @@ from deep_translator import MyMemoryTranslator, GoogleTranslator
 logger = logging.getLogger(__name__)
 
 SOURCE_LANG = "ru"
+_EMAIL = None  # set lazily from env
+
+
+def _get_email() -> str:
+    global _EMAIL
+    if _EMAIL is None:
+        import os
+        _EMAIL = os.getenv("MYMEMORY_EMAIL", "")
+    return _EMAIL
 CHUNK_SIZE  = 4500   # MyMemory limit is 5000; stay safe
 
 # MyMemory uses different lang codes for some languages
@@ -42,7 +51,8 @@ def _translate_sync(text: str, target_lang: str) -> str | None:
 
     # Primary: MyMemory (works on server IPs, free, no key needed)
     try:
-        translator = MyMemoryTranslator(source=src, target=tgt)
+        email = _get_email()
+        translator = MyMemoryTranslator(source=src, target=tgt, email=email or None)
         chunks = _chunk(text)
         translated = [translator.translate(c) or c for c in chunks]
         result = "\n".join(translated)

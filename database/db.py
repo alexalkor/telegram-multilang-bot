@@ -140,6 +140,15 @@ async def get_latest_events() -> list[dict]:
 
 # ── Translations ─────────────────────────────────────────────────────────────
 
+async def clear_all_translations() -> int:
+    """Delete all cached translations. Returns number of rows deleted."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM event_translations") as cur:
+            count = (await cur.fetchone())[0]
+        await db.execute("DELETE FROM event_translations")
+        await db.commit()
+        return count
+
 async def get_translation(event_id: int, language: str) -> str | None:
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
