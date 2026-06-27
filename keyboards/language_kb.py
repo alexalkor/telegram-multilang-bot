@@ -16,4 +16,4 @@ def language_keyboard() -> InlineKeyboardMarkup:
     for label, code in LANGUAGES:
         builder.button(text=label, callback_data=f"lang:{code}")
     builder.adjust(2, 2, 2)  # 3 rows of 2
-    return builder.as_markup(
+    return builder.as_markup()

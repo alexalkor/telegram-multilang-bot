@@ -11,4 +11,4 @@ router = Router()
 @router.message(Command("help"))
 async def cmd_help(message: Message) -> None:
     lang = await get_language(message.from_user.id) or "en"
-    await message.answer(t(lang, "help_
+    await message.answer(t(lang, "help_text"), parse_mode="HTML")

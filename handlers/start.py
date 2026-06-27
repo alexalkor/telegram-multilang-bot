@@ -12,4 +12,13 @@ router = Router()
 
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
-    lang = aw
+    lang = await get_language(message.from_user.id)
+    if lang is None:
+        # New user — ask to pick a language
+        await message.answer(
+            "👋 Welcome! Please choose your language:",
+            reply_markup=language_keyboard(),
+        )
+    else:
+        # Returning user — show the menu directly
+        await message.answer(t(lang, "choose_action"), reply_markup=menu_keyboard(lang))

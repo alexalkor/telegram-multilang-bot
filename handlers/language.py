@@ -25,5 +25,7 @@ async def cb_language(callback: CallbackQuery) -> None:
 
     await set_language(user_id, lang)
 
-    # Confirm language change in the same message
-    await callback.message.e
+    # Confirm in same message, then send menu
+    await callback.message.edit_text(t(lang, "language_set"))
+    await callback.message.answer(t(lang, "choose_action"), reply_markup=menu_keyboard(lang))
+    await callback.answer()
