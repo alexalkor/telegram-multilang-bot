@@ -1,23 +1,14 @@
-import asyncio
 import logging
-import re
-from deep_translator import MyMemoryTranslator, GoogleTranslator
+import urllib.parse
+
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
 SOURCE_LANG = "ru"
-_EMAIL = None  # set lazily from env
+CHUNK_SIZE  = 4500   # MyMemory hard limit is 5000; stay safe
+MYMEMORY_EMAIL = "bot@thewarsawevents.com"
 
-
-def _get_email() -> str:
-    global _EMAIL
-    if _EMAIL is None:
-        import os
-        _EMAIL = os.getenv("MYMEMORY_EMAIL", "")
-    return _EMAIL
-CHUNK_SIZE  = 4500   # MyMemory limit is 5000; stay safe
-
-# MyMemory uses different lang codes for some languages
 _MYMEMORY_CODES = {
     "ru": "ru-RU",
     "en": "en-GB",
@@ -41,40 +32,47 @@ def _chunk(text: str, size: int = CHUNK_SIZE) -> list[str]:
     return chunks
 
 
-def _translate_sync(text: str, target_lang: str) -> str | None:
-    """Translate text. Returns None on total failure."""
+async def _translate_chunk(session: aiohttp.ClientSession, chunk: str, langpair: str) -> str:
+    """Translate a single chunk via MyMemory API. Returns empty string on failure."""
+    url = (
+        "https://api.mymemory.translated.net/get"
+        f"?q={urllib.parse.quote(chunk)}"
+        f"&langpair={langpair}"
+        f"&de={MYMEMORY_EMAIL}"
+    )
+    async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+        data = await resp.json(content_type=None)
+    status = data.get("responseStatus", 0)
+    result = data.get("responseData", {}).get("translatedText", "")
+    if status == 200 and result:
+        return result
+    logger.warning("MyMemory chunk failed: status=%s result=%r", status, result[:80])
+    return ""
+
+
+async def translate(text: str, target_lang: str) -> str | None:
+    """Translate text from Russian to target_lang.
+    Returns translated string on success, None on failure (caller must not cache None)."""
     if target_lang == SOURCE_LANG or not text.strip():
         return text
 
     src = _MYMEMORY_CODES.get(SOURCE_LANG, SOURCE_LANG)
     tgt = _MYMEMORY_CODES.get(target_lang, target_lang)
+    langpair = f"{src}|{tgt}"
+    chunks = _chunk(text)
 
-    # Primary: MyMemory (works on server IPs, free, no key needed)
     try:
-        email = _get_email()
-        translator = MyMemoryTranslator(source=src, target=tgt, email=email or None)
-        chunks = _chunk(text)
-        translated = [translator.translate(c) or c for c in chunks]
-        result = "\n".join(translated)
-        logger.info("MyMemory: %s→%s (%d chars)", SOURCE_LANG, target_lang, len(text))
+        async with aiohttp.ClientSession() as session:
+            results = []
+            for chunk in chunks:
+                translated = await _translate_chunk(session, chunk, langpair)
+                if not translated:
+                    logger.warning("MyMemory: empty chunk result, aborting %s->%s", SOURCE_LANG, target_lang)
+                    return None
+                results.append(translated)
+        result = "\n".join(results)
+        logger.info("MyMemory OK: %s->%s (%d->%d chars)", SOURCE_LANG, target_lang, len(text), len(result))
         return result
     except Exception as e:
-        logger.warning("MyMemory failed (%s→%s): %s", SOURCE_LANG, target_lang, e)
-
-    # Fallback: Google Translate
-    try:
-        translator = GoogleTranslator(source=SOURCE_LANG, target=target_lang)
-        chunks = _chunk(text)
-        translated = [translator.translate(c) or c for c in chunks]
-        result = "\n".join(translated)
-        logger.info("GoogleTranslator fallback: %s→%s", SOURCE_LANG, target_lang)
-        return result
-    except Exception as e:
-        logger.warning("GoogleTranslator also failed (%s→%s): %s", SOURCE_LANG, target_lang, e)
-
-    return None
-
-
-async def translate(text: str, target_lang: str) -> str | None:
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _translate_sync, text, target_lang)
+        logger.warning("MyMemory failed (%s->%s): %s", SOURCE_LANG, target_lang, e)
+        return None

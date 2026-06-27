@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v8-translation-fix"
+VERSION = "v9-direct-api"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -44,6 +44,17 @@ async def handle_post_events(request: web.Request) -> web.Response:
     except Exception as e:
         logger.exception("Error in /events endpoint")
         return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+
+async def handle_test_translate(request: web.Request) -> web.Response:
+    """Test translation of a sample text to verify MyMemory works."""
+    from utils.translator import translate
+    sample = "1. Тест перевода в Варшаве\n📍 Центр\n💰 Бесплатно"
+    results = {}
+    for lang in ["en", "pl", "de", "uk"]:
+        res = await translate(sample, lang)
+        results[lang] = res[:80] if res else None
+    return web.json_response({"ok": True, "results": results})
 
 
 async def handle_clear_cache(request: web.Request) -> web.Response:
@@ -92,6 +103,7 @@ async def main() -> None:
     app.router.add_get("/debug",  handle_debug)
     app.router.add_post("/events", handle_post_events)
     app.router.add_post("/admin/clear-cache", handle_clear_cache)
+    app.router.add_get("/test-translate", handle_test_translate)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
