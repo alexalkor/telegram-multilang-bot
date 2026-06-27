@@ -14,6 +14,8 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
+VERSION = "v5-debug"
+
 
 async def handle_post_events(request: web.Request) -> web.Response:
     """HTTP endpoint for the scraper to upload fresh events."""
@@ -36,7 +38,29 @@ async def handle_post_events(request: web.Request) -> web.Response:
 
 
 async def handle_health(request: web.Request) -> web.Response:
-    return web.Response(text="ok")
+    return web.Response(text=f"ok ({VERSION})")
+
+
+async def handle_debug(request: web.Request) -> web.Response:
+    """Debug: show env state and test GitHub save."""
+    pat = os.getenv("GITHUB_PAT", "")
+    webhook = os.getenv("WEBHOOK_SECRET", "")
+    events = await get_latest_events()
+    github_result = None
+    if pat:
+        try:
+            await save_events("debug-test")
+            github_result = "save_events ran without exception"
+        except Exception as e:
+            github_result = f"EXCEPTION: {e}"
+    return web.json_response({
+        "version": VERSION,
+        "GITHUB_PAT_set": bool(pat),
+        "GITHUB_PAT_prefix": pat[:8] + "..." if pat else "(empty)",
+        "WEBHOOK_SECRET_set": bool(webhook),
+        "events_in_db": len(events),
+        "github_save_test": github_result,
+    })
 
 
 async def main() -> None:
@@ -61,12 +85,13 @@ async def main() -> None:
     # ── HTTP server ──────────────────────────────────────────────────────────
     app = web.Application()
     app.router.add_get("/health", handle_health)
+    app.router.add_get("/debug",  handle_debug)
     app.router.add_post("/events", handle_post_events)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
-    logger.info("HTTP server listening on port %d", PORT)
+    logger.info("HTTP server listening on port %d (%s)", PORT, VERSION)
 
     # ── Telegram bot ─────────────────────────────────────────────────────────
     bot = Bot(
