@@ -7,7 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 
 from config.settings import BOT_TOKEN
 from database.db import init_db
-from handlers import start, help, language
+from handlers import start, help, language, menu, channel_post
 
 
 async def main() -> None:
@@ -26,10 +26,6 @@ async def main() -> None:
 
     dp.include_router(start.router)
     dp.include_router(language.router)
+    dp.include_router(menu.router)
     dp.include_router(help.router)
-
-    await dp.start_polling(bot)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    dp.include_router(channel_p

@@ -1,5 +1,6 @@
 import aiosqlite
 import os
+from datetime import datetime, timedelta
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "bot.db")
 
@@ -14,26 +15,22 @@ async def init_db() -> None:
             )
             """
         )
-        await db.commit()
-
-
-async def get_language(user_id: int) -> str:
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(
-            "SELECT language FROM users WHERE user_id = ?", (user_id,)
-        ) as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else "en"
-
-
-async def set_language(user_id: int, language: str) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             """
-            INSERT INTO users (user_id, language)
-            VALUES (?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET language = excluded.language
-            """,
-            (user_id, language),
+            CREATE TABLE IF NOT EXISTS events (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                week       INTEGER NOT NULL,
+                year       INTEGER NOT NULL,
+                text       TEXT    NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
         )
-        await db.commit()
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS event_translations (
+                event_id INTEGER NOT NULL,
+                language TEXT    NOT NULL,
+                text     TEXT    NOT NULL,
+                PRIMARY KEY (event_id, language)
+           

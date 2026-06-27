@@ -4,6 +4,7 @@ from aiogram.types import Message, CallbackQuery
 
 from database.db import get_language, set_language
 from keyboards.language_kb import language_keyboard
+from keyboards.menu_kb import menu_keyboard
 from utils.i18n import t
 
 router = Router()
@@ -24,6 +25,5 @@ async def cb_language(callback: CallbackQuery) -> None:
 
     await set_language(user_id, lang)
 
-    confirmation = t(lang, "language_set")
-    await callback.message.edit_text(confirmation)
-    await callback.answer()
+    # Confirm language change in the same message
+    await callback.message.e

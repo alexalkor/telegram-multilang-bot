@@ -1,4 +1,4 @@
 {
   "language_set": "✅ Language set to English.",
-  "help_text": "📖 <b>Help</b>\n\nAvailable commands:\n/start — choose your language\n/language — change language\n/help — show this message"
-}
+  "help_text": "📖 <b>Help</b>\n\nAvailable commands:\n/start — main menu\n/language — change language\n/help — this message",
+  "choose_action"
