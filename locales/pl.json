@@ -1,4 +1,14 @@
 {
-  "language_set": "✅ Język ustawiony na Polski.",
-  "help_text": "📖 <b>Pomoc</b>\n\nDostępne komendy:\n/start — menu główne\n/language — zmień język\n/help — ta wiadomość",
-  "choose_act
+  "language_set": "✅ Język ustawiony na polski.",
+  "help_text": "📖 <b>Pomoc</b>\n\nDostępne polecenia:\n/start — menu główne\n/language — zmień język\n/help — ta wiadomość",
+  "choose_action": "Co chcesz zrobić?",
+  "btn_current_week": "📋 Ten tydzień",
+  "btn_prev_week": "📋 Poprzedni tydzień",
+  "btn_change_lang": "🌐 Zmień język",
+  "btn_stop": "⛔ Zatrzymaj",
+  "stopped": "Bot zatrzymany. Wyślij /start, aby wznowić.",
+  "no_events_current": "Brak wydarzeń opublikowanych w tym tygodniu.",
+  "no_events_prev": "Brak wydarzeń z poprzedniego tygodnia.",
+  "events_header_current": "📅 <b>Wydarzenia w tym tygodniu:</b>",
+  "events_header_prev": "📅 <b>Wydarzenia z poprzedniego tygodnia:</b>"
+}
