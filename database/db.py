@@ -7,16 +7,13 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "..", "bot.db")
 
 async def init_db() -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            """
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                user_id   INTEGER PRIMARY KEY,
-                language  TEXT    NOT NULL DEFAULT 'en'
+                user_id  INTEGER PRIMARY KEY,
+                language TEXT NOT NULL DEFAULT 'en'
             )
-            """
-        )
-        await db.execute(
-            """
+        """)
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS events (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 week       INTEGER NOT NULL,
@@ -24,20 +21,19 @@ async def init_db() -> None:
                 text       TEXT    NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-            """
-        )
-        await db.execute(
-            """
+        """)
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS event_translations (
                 event_id INTEGER NOT NULL,
                 language TEXT    NOT NULL,
                 text     TEXT    NOT NULL,
                 PRIMARY KEY (event_id, language)
             )
-            """
-        )
+        """)
         await db.commit()
 
+
+# ── Users ───────────────────────────────────────────────────────────────────
 
 async def get_language(user_id: int) -> str | None:
     async with aiosqlite.connect(DB_PATH) as db:
@@ -50,21 +46,42 @@ async def get_language(user_id: int) -> str | None:
 
 async def set_language(user_id: int, language: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            """
-            INSERT INTO users (user_id, language)
-            VALUES (?, ?)
+        await db.execute("""
+            INSERT INTO users (user_id, language) VALUES (?, ?)
             ON CONFLICT(user_id) DO UPDATE SET language = excluded.language
-            """,
-            (user_id, language),
-        )
+        """, (user_id, language))
         await db.commit()
 
 
-def _week_year(offset_weeks: int = 0) -> tuple[int, int]:
-    dt = datetime.now() - timedelta(weeks=offset_weeks)
-    iso = dt.isocalendar()
-    return iso[1], iso[0]
+# ── Events ──────────────────────────────────────────────────────────────────
+
+def _week_year() -> tuple[int, int]:
+    iso = datetime.now().isocalendar()
+    return iso[1], iso[0]  # week, year
+
+
+async def replace_current_week_events(text: str) -> int:
+    """Delete this week's events + cached translations, then insert fresh text.
+    Returns the new event id."""
+    week, year = _week_year()
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM events WHERE week=? AND year=?", (week, year)
+        ) as cur:
+            old_ids = [r[0] for r in await cur.fetchall()]
+        for eid in old_ids:
+            await db.execute(
+                "DELETE FROM event_translations WHERE event_id=?", (eid,)
+            )
+        await db.execute(
+            "DELETE FROM events WHERE week=? AND year=?", (week, year)
+        )
+        cursor = await db.execute(
+            "INSERT INTO events (week, year, text) VALUES (?, ?, ?)",
+            (week, year, text),
+        )
+        await db.commit()
+        return cursor.lastrowid
 
 
 async def save_event(week: int, year: int, text: str) -> int:
@@ -78,7 +95,7 @@ async def save_event(week: int, year: int, text: str) -> int:
 
 
 async def get_latest_events() -> list[dict]:
-    """Return events from the most recent week available in the DB."""
+    """Return events from the most recent week in DB."""
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
             "SELECT year, week FROM events ORDER BY year DESC, week DESC LIMIT 1"
@@ -88,17 +105,19 @@ async def get_latest_events() -> list[dict]:
                 return []
             year, week = row[0], row[1]
         async with db.execute(
-            "SELECT id, text FROM events WHERE year = ? AND week = ? ORDER BY id",
+            "SELECT id, text FROM events WHERE year=? AND week=? ORDER BY id",
             (year, week),
         ) as cursor:
             rows = await cursor.fetchall()
             return [{"id": r[0], "text": r[1]} for r in rows]
 
 
+# ── Translations ─────────────────────────────────────────────────────────────
+
 async def get_translation(event_id: int, language: str) -> str | None:
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute(
-            "SELECT text FROM event_translations WHERE event_id = ? AND language = ?",
+            "SELECT text FROM event_translations WHERE event_id=? AND language=?",
             (event_id, language),
         ) as cursor:
             row = await cursor.fetchone()
@@ -107,12 +126,8 @@ async def get_translation(event_id: int, language: str) -> str | None:
 
 async def save_translation(event_id: int, language: str, text: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            """
-            INSERT INTO event_translations (event_id, language, text)
-            VALUES (?, ?, ?)
+        await db.execute("""
+            INSERT INTO event_translations (event_id, language, text) VALUES (?, ?, ?)
             ON CONFLICT(event_id, language) DO UPDATE SET text = excluded.text
-            """,
-            (event_id, language, text),
-        )
+        """, (event_id, language, text))
         await db.commit()
