@@ -7,7 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 
 from config.settings import BOT_TOKEN
 from database.db import init_db
-from handlers import start, help, language, menu, channel_post
+from handlers import start, help, language, menu, admin
 
 
 async def main() -> None:
@@ -28,11 +28,11 @@ async def main() -> None:
     dp.include_router(language.router)
     dp.include_router(menu.router)
     dp.include_router(help.router)
-    dp.include_router(channel_post.router)
+    dp.include_router(admin.router)
 
     await dp.start_polling(
         bot,
-        allowed_updates=["message", "callback_query", "channel_post"],
+        allowed_updates=["message", "callback_query"],
     )
 
 
