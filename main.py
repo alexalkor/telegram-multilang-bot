@@ -28,4 +28,13 @@ async def main() -> None:
     dp.include_router(language.router)
     dp.include_router(menu.router)
     dp.include_router(help.router)
-    dp.include_router(channel_p
+    dp.include_router(channel_post.router)
+
+    await dp.start_polling(
+        bot,
+        allowed_updates=["message", "callback_query", "channel_post"],
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
