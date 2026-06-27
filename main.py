@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v6-diag"
+VERSION = "v7-textpreview"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -29,7 +29,7 @@ async def handle_post_events(request: web.Request) -> web.Response:
         event_id = await replace_current_week_events(text)
         gh_status, gh_msg = await save_events(text)
         logger.info("Event #%d saved; GitHub: %d %s", event_id, gh_status, gh_msg[:80])
-        return web.json_response({"ok": True, "event_id": event_id,
+        return web.json_response({"ok": True, "event_id": event_id, "text_preview": text[:80],
                                   "github_status": gh_status, "github_msg": gh_msg[:200]})
     except Exception as e:
         logger.exception("Error in /events endpoint")
