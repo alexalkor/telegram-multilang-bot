@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v14-lazy-persist"
+VERSION = "v15-bg-translate"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -37,29 +37,18 @@ async def handle_post_events(request: web.Request) -> web.Response:
             event_id = await replace_current_week_events(stored_text)
             full_text = stored_text
 
-        # Translate all languages upfront and cache in DB + GitHub
-        import asyncio as _asyncio
-        from utils.translator import translate
-        langs = ["en", "pl", "de"]  # be/uk translated lazily on first user request
-        translations: dict = {}
-        for lang in langs:
-            result = await translate(full_text, lang)
-            if result and result != full_text:
-                await save_translation(event_id, lang, result)
-                translations[lang] = result
-                logger.info("Pre-translated to %s (%d chars)", lang, len(result))
-            else:
-                logger.warning("Pre-translation failed for %s", lang)
-            await _asyncio.sleep(1)  # avoid MyMemory rate limit between languages
+        # Save raw to GitHub immediately (no translations yet)
+        gh_status, gh_msg = await save_events_data(full_text, {})
+        logger.info("Event #%d raw saved; GitHub: %d %s", event_id, gh_status, gh_msg[:80])
 
-        # Persist raw + all translations to GitHub (survives redeploys)
-        gh_status, gh_msg = await save_events_data(full_text, translations)
-        logger.info("Event #%d saved; translated=%s; GitHub: %d %s",
-                    event_id, list(translations.keys()), gh_status, gh_msg[:80])
+        # Translate all languages in the background (takes 30-60s, don't block response)
+        import asyncio as _asyncio
+        _asyncio.create_task(_bg_translate(event_id, full_text))
+
         return web.json_response({
             "ok": True, "event_id": event_id, "mode": mode,
-            "translated_langs": list(translations.keys()),
-            "github_status": gh_status, "github_msg": gh_msg[:200],
+            "github_status": gh_status,
+            "note": "translation started in background",
         })
     except Exception as e:
         logger.exception("Error in /events endpoint")
@@ -85,6 +74,31 @@ async def handle_test_translate(request: web.Request) -> web.Response:
         "text_preview": text[:300],
         "results": results,
     })
+
+
+async def _bg_translate(event_id: int, text: str) -> None:
+    """Background task: translate to all langs, cache in DB + GitHub."""
+    import asyncio as _asyncio
+    from utils.translator import translate
+    langs = ["en", "pl", "de", "be", "uk"]
+    translations: dict = {}
+    for lang in langs:
+        try:
+            result = await translate(text, lang)
+            if result and result != text:
+                await save_translation(event_id, lang, result)
+                translations[lang] = result
+                logger.info("BG translated %s (%d chars)", lang, len(result))
+            else:
+                logger.warning("BG translation failed for %s", lang)
+        except Exception as e:
+            logger.warning("BG translation error for %s: %s", lang, e)
+        await _asyncio.sleep(2)  # spread load, avoid rate limits
+    # Persist all translations to GitHub
+    events = await get_latest_events()
+    if events and events[0]["id"] == event_id:
+        await save_events_data(text, translations)
+        logger.info("BG: saved %d translations to GitHub", len(translations))
 
 
 async def handle_clear_cache(request: web.Request) -> web.Response:
