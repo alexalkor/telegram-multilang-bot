@@ -57,6 +57,9 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
 
         for i in range(0, len(items), BATCH_SIZE):
             batch = items[i : i + BATCH_SIZE]
+            # Collapse internal double-newlines within each item (scraper uses \n\n
+            # between title and description inside one event)
+            batch = [item.replace("\n\n", "\n") for item in batch]
             text_out = "\n\n".join(batch)
             if len(text_out) > MAX_MSG:
                 text_out = text_out[:MAX_MSG - 3] + "..."
