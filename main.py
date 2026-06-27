@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v9-direct-api"
+VERSION = "v10-debug"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -47,14 +47,24 @@ async def handle_post_events(request: web.Request) -> web.Response:
 
 
 async def handle_test_translate(request: web.Request) -> web.Response:
-    """Test translation of a sample text to verify MyMemory works."""
+    """Translate the actual DB events to verify MyMemory works on real content."""
     from utils.translator import translate
-    sample = "1. Тест перевода в Варшаве\n📍 Центр\n💰 Бесплатно"
+    events = await get_latest_events()
+    if not events:
+        return web.json_response({"error": "no events in db"})
+    text = events[0]["text"]
     results = {}
-    for lang in ["en", "pl", "de", "uk"]:
-        res = await translate(sample, lang)
-        results[lang] = res[:80] if res else None
-    return web.json_response({"ok": True, "results": results})
+    for lang in ["en", "pl"]:
+        res = await translate(text, lang)
+        results[lang] = {
+            "ok": res is not None and res != text,
+            "preview": (res or "")[:200],
+        }
+    return web.json_response({
+        "text_len": len(text),
+        "text_preview": text[:300],
+        "results": results,
+    })
 
 
 async def handle_clear_cache(request: web.Request) -> web.Response:
