@@ -9,6 +9,9 @@ from utils.translator import translate
 
 router = Router()
 
+MAX_ITEMS = 20      # safety cap
+MAX_MSG   = 4090    # Telegram hard limit is 4096; leave a small margin
+
 
 async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
     """Fetch and send the latest events in the user's language."""
@@ -20,11 +23,21 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
     await callback.message.answer(t(lang, "events_header"))
 
     for event in events:
-        text = await get_translation(event["id"], lang)
-        if text is None:
-            text = await translate(event["text"], lang)
-            await save_translation(event["id"], lang, text)
-        await callback.message.answer(text)
+        # 1. Get (or create) the translated version of the full blob
+        translated = await get_translation(event["id"], lang)
+        if translated is None:
+            translated = await translate(event["text"], lang)
+            await save_translation(event["id"], lang, translated)
+
+        # 2. Split by double-newline — each paragraph = one event card
+        #    (matches the scraper's "1. 🎭 ...\n📍...\n🕐...\n💰..." format)
+        items = [p.strip() for p in translated.split("\n\n") if p.strip()]
+
+        # 3. Send each item as its own message (Telegram safe length)
+        for item in items[:MAX_ITEMS]:
+            if len(item) > MAX_MSG:
+                item = item[:MAX_MSG - 3] + "..."
+            await callback.message.answer(item)
 
 
 @router.callback_query(F.data == "menu:events")
