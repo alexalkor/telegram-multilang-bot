@@ -8,7 +8,7 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
 from config.settings import BOT_TOKEN, WEBHOOK_SECRET, PORT
-from database.db import init_db, replace_current_week_events, get_latest_events
+from database.db import init_db, replace_current_week_events, append_to_week_events, get_latest_events
 from database.github_storage import fetch_events, save_events
 from handlers import start, help, language, menu, admin
 
@@ -28,10 +28,18 @@ async def handle_post_events(request: web.Request) -> web.Response:
             return web.json_response({"ok": False, "error": "empty text"}, status=400)
         date_range = data.get("date_range", "").strip()
         stored_text = f"{date_range}\n\n{text}" if date_range else text
-        event_id = await replace_current_week_events(stored_text)
-        gh_status, gh_msg = await save_events(stored_text)
-        logger.info("Event #%d saved; GitHub: %d %s", event_id, gh_status, gh_msg[:80])
-        return web.json_response({"ok": True, "event_id": event_id,
+        mode = data.get("mode", "replace")
+        if mode == "append":
+            event_id = await append_to_week_events(stored_text)
+            # Re-read the merged text to persist full blob to GitHub
+            latest = await get_latest_events()
+            full_text = latest[0]["text"] if latest else stored_text
+            gh_status, gh_msg = await save_events(full_text)
+        else:
+            event_id = await replace_current_week_events(stored_text)
+            gh_status, gh_msg = await save_events(stored_text)
+        logger.info("Event #%d saved (mode=%s); GitHub: %d %s", event_id, mode, gh_status, gh_msg[:80])
+        return web.json_response({"ok": True, "event_id": event_id, "mode": mode,
                                   "github_status": gh_status, "github_msg": gh_msg[:200]})
     except Exception as e:
         logger.exception("Error in /events endpoint")

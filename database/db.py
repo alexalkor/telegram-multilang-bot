@@ -84,6 +84,32 @@ async def replace_current_week_events(text: str) -> int:
         return cursor.lastrowid
 
 
+async def append_to_week_events(new_text: str) -> int:
+    """Append new_text to this week's existing event blob (merges into one row)."""
+    week, year = _week_year()
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id, text FROM events WHERE week=? AND year=? ORDER BY id LIMIT 1",
+            (week, year)
+        ) as cur:
+            row = await cur.fetchone()
+        if row:
+            existing_id, existing_text = row
+            # Invalidate cached translations so they get re-translated
+            await db.execute("DELETE FROM event_translations WHERE event_id=?", (existing_id,))
+            combined = existing_text.rstrip() + "\n\n" + new_text.strip()
+            await db.execute("UPDATE events SET text=? WHERE id=?", (combined, existing_id))
+            await db.commit()
+            return existing_id
+        else:
+            cursor = await db.execute(
+                "INSERT INTO events (week, year, text) VALUES (?, ?, ?)",
+                (week, year, new_text)
+            )
+            await db.commit()
+            return cursor.lastrowid
+
+
 async def save_event(week: int, year: int, text: str) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
