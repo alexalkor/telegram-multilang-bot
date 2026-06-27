@@ -63,6 +63,7 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
 async def cb_events(callback: CallbackQuery) -> None:
     lang = await get_language(callback.from_user.id) or "en"
     await send_latest_events(callback, lang)
+    await callback.message.answer(t(lang, "choose_action"), reply_markup=menu_keyboard(lang))
     await callback.answer()
 
 
