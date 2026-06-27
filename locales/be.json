@@ -1,8 +1,8 @@
 {
   "language_set": "✅ Мова ўсталявана: Беларуская.",
   "help_text": "📖 <b>Даведка</b>\n\nДаступныя каманды:\n/start — галоўнае меню\n/language — змяніць мову\n/help — гэтае паведамленне",
-  "choose_action": "Што вы хочаце зрабіць?",
-  "btn_events": "📋 Падзеі",
+  "choose_action": "Weekend event-list from The-Warsaw",
+  "btn_events": "📋 Глядзець спіс падзей",
   "btn_change_lang": "🌐 Змяніць мову",
   "btn_stop": "⛔ Спыніць",
   "stopped": "Бот спынены. Адпраўце /start каб працягнуць.",

@@ -1,8 +1,8 @@
 {
   "language_set": "✅ Sprache auf Deutsch eingestellt.",
   "help_text": "📖 <b>Hilfe</b>\n\nVerfügbare Befehle:\n/start — Hauptmenü\n/language — Sprache ändern\n/help — diese Nachricht",
-  "choose_action": "Was möchten Sie tun?",
-  "btn_events": "📋 Veranstaltungen",
+  "choose_action": "Weekend event-list from The-Warsaw",
+  "btn_events": "📋 Aktuelle Liste ansehen",
   "btn_change_lang": "🌐 Sprache ändern",
   "btn_stop": "⛔ Stoppen",
   "stopped": "Bot gestoppt. Sende /start zum Fortfahren.",
