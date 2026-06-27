@@ -1,0 +1,14 @@
+{
+  "language_set": "✅ Sprache auf Deutsch eingestellt.",
+  "help_text": "📖 <b>Hilfe</b>\n\nVerfügbare Befehle:\n/start — Hauptmenü\n/language — Sprache ändern\n/help — diese Nachricht",
+  "choose_action": "Was möchten Sie tun?",
+  "btn_current_week": "📋 Diese Woche",
+  "btn_prev_week": "📋 Letzte Woche",
+  "btn_change_lang": "🌐 Sprache ändern",
+  "btn_stop": "⛔ Stoppen",
+  "stopped": "Bot gestoppt. Sende /start zum Fortfahren.",
+  "no_events_current": "Für diese Woche wurden noch keine Events veröffentlicht.",
+  "no_events_prev": "Keine Events für letzte Woche gefunden.",
+  "events_header_current": "📅 <b>Events diese Woche:</b>",
+  "events_header_prev": "📅 <b>Events letzte Woche:</b>"
+}
