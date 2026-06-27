@@ -8,13 +8,13 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
 from config.settings import BOT_TOKEN, WEBHOOK_SECRET, PORT
-from database.db import init_db, replace_current_week_events, append_to_week_events, get_latest_events, clear_all_translations
-from database.github_storage import fetch_events, save_events
+from database.db import init_db, replace_current_week_events, append_to_week_events, get_latest_events, clear_all_translations, save_translation
+from database.github_storage import fetch_events, fetch_events_data, save_events_data
 from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v10-debug"
+VERSION = "v11-pretranslate"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -31,16 +31,34 @@ async def handle_post_events(request: web.Request) -> web.Response:
         mode = data.get("mode", "replace")
         if mode == "append":
             event_id = await append_to_week_events(stored_text)
-            # Re-read the merged text to persist full blob to GitHub
             latest = await get_latest_events()
             full_text = latest[0]["text"] if latest else stored_text
-            gh_status, gh_msg = await save_events(full_text)
         else:
             event_id = await replace_current_week_events(stored_text)
-            gh_status, gh_msg = await save_events(stored_text)
-        logger.info("Event #%d saved (mode=%s); GitHub: %d %s", event_id, mode, gh_status, gh_msg[:80])
-        return web.json_response({"ok": True, "event_id": event_id, "mode": mode,
-                                  "github_status": gh_status, "github_msg": gh_msg[:200]})
+            full_text = stored_text
+
+        # Translate all languages upfront and cache in DB + GitHub
+        from utils.translator import translate
+        langs = ["en", "pl", "de", "be", "uk"]
+        translations: dict = {}
+        for lang in langs:
+            result = await translate(full_text, lang)
+            if result and result != full_text:
+                await save_translation(event_id, lang, result)
+                translations[lang] = result
+                logger.info("Pre-translated to %s (%d chars)", lang, len(result))
+            else:
+                logger.warning("Pre-translation failed for %s", lang)
+
+        # Persist raw + all translations to GitHub (survives redeploys)
+        gh_status, gh_msg = await save_events_data(full_text, translations)
+        logger.info("Event #%d saved; translated=%s; GitHub: %d %s",
+                    event_id, list(translations.keys()), gh_status, gh_msg[:80])
+        return web.json_response({
+            "ok": True, "event_id": event_id, "mode": mode,
+            "translated_langs": list(translations.keys()),
+            "github_status": gh_status, "github_msg": gh_msg[:200],
+        })
     except Exception as e:
         logger.exception("Error in /events endpoint")
         return web.json_response({"ok": False, "error": str(e)}, status=500)
@@ -85,7 +103,7 @@ async def handle_debug(request: web.Request) -> web.Response:
     pat = os.getenv("GITHUB_PAT", "")
     events = await get_latest_events()
     cyrillic_test = "1. 🎭 Тест\n📍 Варшава\n🕐 Сегодня\n💰 100 зл"
-    gh_status, gh_msg = await save_events(cyrillic_test)
+    gh_status, gh_msg = await save_events_data(cyrillic_test, {})
     return web.json_response({
         "version": VERSION,
         "GITHUB_PAT_set": bool(pat),
@@ -103,10 +121,18 @@ async def main() -> None:
     existing = await get_latest_events()
     if not existing:
         logger.info("DB empty — seeding from GitHub...")
-        text = await fetch_events()
-        if text:
-            eid = await replace_current_week_events(text)
-            logger.info("Seeded from GitHub — event #%d", eid)
+        data = await fetch_events_data()
+        if data:
+            eid = await replace_current_week_events(data["raw"])
+            for lang, txt in data.get("translations", {}).items():
+                await save_translation(eid, lang, txt)
+            logger.info("Seeded from GitHub — event #%d with %d translations",
+                        eid, len(data.get("translations", {})))
+        else:
+            text = await fetch_events()
+            if text:
+                eid = await replace_current_week_events(text)
+                logger.info("Seeded from GitHub legacy txt — event #%d", eid)
 
     app = web.Application()
     app.router.add_get("/health", handle_health)
