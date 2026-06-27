@@ -14,13 +14,17 @@ MAX_MSG    = 4090
 
 
 def _parse_events(text: str) -> tuple[str | None, list[str]]:
-    """Split blob into (date_range_or_None, [event_items])."""
+    """Split blob into (date_range_or_None, [event_items]).
+    An event item starts with "N. " (digit(s) + dot + space).
+    A date range like "26–28 июня" starts with digits but has no dot.
+    """
+    import re
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
     if not paragraphs:
         return None, []
-    if paragraphs[0][:1].isdigit():
-        return None, paragraphs
-    return paragraphs[0], paragraphs[1:]
+    if re.match(r"^\d+\.\s", paragraphs[0]):
+        return None, paragraphs      # first block is already an event
+    return paragraphs[0], paragraphs[1:]  # first block is date range / header
 
 
 async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
