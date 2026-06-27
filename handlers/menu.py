@@ -15,16 +15,23 @@ MAX_MSG    = 4090
 
 def _parse_events(text: str) -> tuple[str | None, list[str]]:
     """Split blob into (date_range_or_None, [event_items]).
-    An event item starts with "N. " (digit(s) + dot + space).
-    A date range like "26–28 июня" starts with digits but has no dot.
+    Splits only on boundaries between numbered events (N. ...) so that
+    internal blank lines within one event are preserved as single newlines.
     """
     import re
-    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-    if not paragraphs:
-        return None, []
-    if re.match(r"^\d+\.\s", paragraphs[0]):
-        return None, paragraphs      # first block is already an event
-    return paragraphs[0], paragraphs[1:]  # first block is date range / header
+    # Detect date range: first paragraph if it does NOT start with "N. "
+    first_split = text.split("\n\n", 1)
+    if len(first_split) == 2 and not re.match(r"^\d+\.\s", first_split[0].strip()):
+        date_range = first_split[0].strip()
+        body = first_split[1]
+    else:
+        date_range = None
+        body = text
+    # Split body only where a new numbered event begins (\n\n followed by digit+dot)
+    items = re.split(r"\n\n(?=\d+\.\s)", body)
+    # Collapse any remaining internal double-newlines → single newline
+    items = [item.replace("\n\n", "\n").strip() for item in items if item.strip()]
+    return date_range, items
 
 
 async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
@@ -59,7 +66,6 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
             batch = items[i : i + BATCH_SIZE]
             # Collapse internal double-newlines within each item (scraper uses \n\n
             # between title and description inside one event)
-            batch = [item.replace("\n\n", "\n") for item in batch]
             text_out = "\n\n".join(batch)
             if len(text_out) > MAX_MSG:
                 text_out = text_out[:MAX_MSG - 3] + "..."

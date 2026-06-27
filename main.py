@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v12-post-fix"
+VERSION = "v13-parse-fix"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -38,6 +38,7 @@ async def handle_post_events(request: web.Request) -> web.Response:
             full_text = stored_text
 
         # Translate all languages upfront and cache in DB + GitHub
+        import asyncio as _asyncio
         from utils.translator import translate
         langs = ["en", "pl", "de", "be", "uk"]
         translations: dict = {}
@@ -49,6 +50,7 @@ async def handle_post_events(request: web.Request) -> web.Response:
                 logger.info("Pre-translated to %s (%d chars)", lang, len(result))
             else:
                 logger.warning("Pre-translation failed for %s", lang)
+            await _asyncio.sleep(1)  # avoid MyMemory rate limit between languages
 
         # Persist raw + all translations to GitHub (survives redeploys)
         gh_status, gh_msg = await save_events_data(full_text, translations)
