@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v13-parse-fix"
+VERSION = "v14-lazy-persist"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -40,7 +40,7 @@ async def handle_post_events(request: web.Request) -> web.Response:
         # Translate all languages upfront and cache in DB + GitHub
         import asyncio as _asyncio
         from utils.translator import translate
-        langs = ["en", "pl", "de", "be", "uk"]
+        langs = ["en", "pl", "de"]  # be/uk translated lazily on first user request
         translations: dict = {}
         for lang in langs:
             result = await translate(full_text, lang)

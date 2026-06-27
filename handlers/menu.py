@@ -1,7 +1,10 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
+import asyncio
+
 from database.db import get_language, get_latest_events, get_translation, save_translation
+from database.github_storage import fetch_events_data, save_events_data
 from keyboards.language_kb import language_keyboard
 from keyboards.menu_kb import menu_keyboard
 from utils.i18n import t
@@ -34,6 +37,18 @@ def _parse_events(text: str) -> tuple[str | None, list[str]]:
     return date_range, items
 
 
+async def _persist_lang_to_github(lang: str, translated: str) -> None:
+    """Add a lazily-computed translation to the GitHub JSON backup."""
+    try:
+        data = await fetch_events_data()
+        if data:
+            data["translations"][lang] = translated
+            await save_events_data(data["raw"], data["translations"])
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to persist %s translation to GitHub: %s", lang, e)
+
+
 async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
     events = await get_latest_events()
     if not events:
@@ -47,9 +62,10 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
         if translated is None:
             result = await translate(event["text"], lang)
             if result is not None:
-                # Successful translation — cache it
+                # Successful translation — cache in DB and persist to GitHub
                 translated = result
                 await save_translation(event["id"], lang, translated)
+                asyncio.create_task(_persist_lang_to_github(lang, result))
             else:
                 # Translation failed — use original Russian, don't cache
                 translated = event["text"]
