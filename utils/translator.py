@@ -4,18 +4,13 @@ from deep_translator import GoogleTranslator
 
 logger = logging.getLogger(__name__)
 
-# Languages the channel posts in (source)
 SOURCE_LANG = "ru"
-
-# Max chars per Google Translate request
-CHUNK_SIZE = 4500
+CHUNK_SIZE  = 4500
 
 
 def _chunk(text: str) -> list[str]:
-    """Split text into chunks that fit within Google Translate's limit."""
     chunks = []
     while len(text) > CHUNK_SIZE:
-        # Try to split at a newline near the limit
         split_at = text.rfind("\n", 0, CHUNK_SIZE)
         if split_at == -1:
             split_at = CHUNK_SIZE
@@ -26,8 +21,8 @@ def _chunk(text: str) -> list[str]:
     return chunks
 
 
-def _translate_sync(text: str, target_lang: str) -> str:
-    """Synchronous translation with chunking and fallback."""
+def _translate_sync(text: str, target_lang: str) -> str | None:
+    """Translate text. Returns None on failure (caller decides fallback)."""
     if target_lang == SOURCE_LANG or not text.strip():
         return text
     try:
@@ -36,11 +31,11 @@ def _translate_sync(text: str, target_lang: str) -> str:
         translated = [translator.translate(chunk) or chunk for chunk in chunks]
         return "\n".join(translated)
     except Exception as e:
-        logger.warning(f"Translation to {target_lang} failed: {e}. Returning original.")
-        return text
+        logger.warning("Translation to %s failed: %s", target_lang, e)
+        return None
 
 
-async def translate(text: str, target_lang: str) -> str:
-    """Async wrapper around synchronous Google Translate call."""
+async def translate(text: str, target_lang: str) -> str | None:
+    """Async wrapper. Returns None if translation failed."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _translate_sync, text, target_lang)
