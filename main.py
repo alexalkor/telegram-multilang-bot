@@ -14,11 +14,10 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v5-debug"
+VERSION = "v6-diag"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
-    """HTTP endpoint for the scraper to upload fresh events."""
     secret = request.headers.get("X-Secret", "")
     if not WEBHOOK_SECRET or secret != WEBHOOK_SECRET:
         return web.Response(status=401, text="Unauthorized")
@@ -28,10 +27,10 @@ async def handle_post_events(request: web.Request) -> web.Response:
         if not text:
             return web.json_response({"ok": False, "error": "empty text"}, status=400)
         event_id = await replace_current_week_events(text)
-        logger.info("Events replaced via HTTP — new event #%d", event_id)
-        # Persist to GitHub — await ensures save completes before responding
-        await save_events(text)
-        return web.json_response({"ok": True, "event_id": event_id})
+        gh_status, gh_msg = await save_events(text)
+        logger.info("Event #%d saved; GitHub: %d %s", event_id, gh_status, gh_msg[:80])
+        return web.json_response({"ok": True, "event_id": event_id,
+                                  "github_status": gh_status, "github_msg": gh_msg[:200]})
     except Exception as e:
         logger.exception("Error in /events endpoint")
         return web.json_response({"ok": False, "error": str(e)}, status=500)
@@ -42,47 +41,32 @@ async def handle_health(request: web.Request) -> web.Response:
 
 
 async def handle_debug(request: web.Request) -> web.Response:
-    """Debug: show env state and test GitHub save."""
     pat = os.getenv("GITHUB_PAT", "")
-    webhook = os.getenv("WEBHOOK_SECRET", "")
     events = await get_latest_events()
-    github_result = None
-    if pat:
-        try:
-            await save_events("debug-test")
-            github_result = "save_events ran without exception"
-        except Exception as e:
-            github_result = f"EXCEPTION: {e}"
+    cyrillic_test = "1. 🎭 Тест\n📍 Варшава\n🕐 Сегодня\n💰 100 зл"
+    gh_status, gh_msg = await save_events(cyrillic_test)
     return web.json_response({
         "version": VERSION,
         "GITHUB_PAT_set": bool(pat),
         "GITHUB_PAT_prefix": pat[:8] + "..." if pat else "(empty)",
-        "WEBHOOK_SECRET_set": bool(webhook),
         "events_in_db": len(events),
-        "github_save_test": github_result,
+        "github_cyrillic_test": {"status": gh_status, "msg": gh_msg[:200]},
     })
 
 
 async def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
-
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     await init_db()
 
-    # Seed DB from GitHub if empty (e.g. after a redeploy)
     existing = await get_latest_events()
     if not existing:
-        logger.info("DB empty — attempting to seed from GitHub...")
+        logger.info("DB empty — seeding from GitHub...")
         text = await fetch_events()
         if text:
             eid = await replace_current_week_events(text)
-            logger.info("Seeded DB from GitHub — event #%d", eid)
-        else:
-            logger.info("No events in GitHub storage yet")
+            logger.info("Seeded from GitHub — event #%d", eid)
 
-    # ── HTTP server ──────────────────────────────────────────────────────────
     app = web.Application()
     app.router.add_get("/health", handle_health)
     app.router.add_get("/debug",  handle_debug)
@@ -91,15 +75,10 @@ async def main() -> None:
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
-    logger.info("HTTP server listening on port %d (%s)", PORT, VERSION)
+    logger.info("HTTP server on port %d (%s)", PORT, VERSION)
 
-    # ── Telegram bot ─────────────────────────────────────────────────────────
-    bot = Bot(
-        token=BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
+    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
-
     dp.include_router(start.router)
     dp.include_router(language.router)
     dp.include_router(menu.router)

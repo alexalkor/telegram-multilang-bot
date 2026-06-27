@@ -14,7 +14,6 @@ _API_URL   = f"https://api.github.com/repos/{_REPO}/contents/{_FILE_PATH}"
 
 
 def _headers() -> dict:
-    """Build auth headers fresh each call so GITHUB_PAT is always current."""
     pat = os.getenv("GITHUB_PAT", "")
     return {
         "Authorization": f"token {pat}",
@@ -36,22 +35,24 @@ async def fetch_events() -> str | None:
     return None
 
 
-async def save_events(text: str) -> None:
-    """Commit updated events text to GitHub (fire-and-forget is fine)."""
+async def save_events(text: str) -> tuple[int, str]:
+    """Commit updated events text to GitHub.
+    Returns (http_status, message) for diagnostics."""
     pat = os.getenv("GITHUB_PAT", "")
     if not pat:
         logger.warning("GITHUB_PAT not set — skipping GitHub save")
-        return
+        return 0, "GITHUB_PAT not set"
     try:
-        # Python's str.encode() → bytes is UTF-8 by default; b64encode handles it correctly
         encoded = base64.b64encode(text.encode("utf-8")).decode("ascii")
         h = _headers()
         async with aiohttp.ClientSession() as session:
-            # Get current SHA (needed to update an existing file)
+            # Get current SHA
             sha: str | None = None
             async with session.get(_API_URL, headers=h) as r:
                 if r.status == 200:
                     sha = (await r.json()).get("sha")
+                else:
+                    logger.warning("GitHub GET failed: %d", r.status)
 
             payload: dict = {
                 "message":   "chore: update events [skip deploy]",
@@ -62,10 +63,13 @@ async def save_events(text: str) -> None:
                 payload["sha"] = sha
 
             async with session.put(_API_URL, headers=h, json=payload) as r:
+                body = await r.text()
                 if r.status in (200, 201):
-                    logger.info("Events saved to GitHub ✓")
+                    logger.info("Events saved to GitHub ✓ (status %d)", r.status)
+                    return r.status, "ok"
                 else:
-                    body = await r.text()
-                    logger.warning("GitHub save failed %d: %s", r.status, body[:300])
+                    logger.warning("GitHub PUT failed %d: %s", r.status, body[:300])
+                    return r.status, body[:300]
     except Exception as e:
         logger.warning("GitHub save exception: %s", e)
+        return -1, str(e)
