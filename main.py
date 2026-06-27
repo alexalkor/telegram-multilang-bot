@@ -8,7 +8,8 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
 from config.settings import BOT_TOKEN, WEBHOOK_SECRET, PORT
-from database.db import init_db, replace_current_week_events
+from database.db import init_db, replace_current_week_events, get_latest_events
+from database.github_storage import fetch_events, save_events
 from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,8 @@ async def handle_post_events(request: web.Request) -> web.Response:
             return web.json_response({"ok": False, "error": "empty text"}, status=400)
         event_id = await replace_current_week_events(text)
         logger.info("Events replaced via HTTP — new event #%d", event_id)
+        # Persist to GitHub in background (survives redeploys)
+        asyncio.create_task(save_events(text))
         return web.json_response({"ok": True, "event_id": event_id})
     except Exception as e:
         logger.exception("Error in /events endpoint")
@@ -44,7 +47,18 @@ async def main() -> None:
 
     await init_db()
 
-    # ── HTTP server (for scraper to POST events) ────────────────────────────
+    # Seed DB from GitHub if empty (e.g. after a redeploy)
+    existing = await get_latest_events()
+    if not existing:
+        logger.info("DB empty — attempting to seed from GitHub...")
+        text = await fetch_events()
+        if text:
+            eid = await replace_current_week_events(text)
+            logger.info("Seeded DB from GitHub — event #%d", eid)
+        else:
+            logger.info("No events in GitHub storage yet")
+
+    # ── HTTP server ──────────────────────────────────────────────────────────
     app = web.Application()
     app.router.add_get("/health", handle_health)
     app.router.add_post("/events", handle_post_events)
