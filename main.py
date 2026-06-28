@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v16-reorder-batch"
+VERSION = "v17-final-batch"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -80,7 +80,7 @@ async def _bg_translate(event_id: int, text: str) -> None:
     """Background task: translate to all langs, cache in DB + GitHub."""
     import asyncio as _asyncio
     from utils.translator import translate
-    langs = ["en", "pl", "de", "be", "uk"]
+    langs = ["en", "pl", "be", "uk", "de"]  # ru is source, no translation needed
     translations: dict = {}
     for lang in langs:
         try:

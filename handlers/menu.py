@@ -78,14 +78,20 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
             header = "📅 <b>Latest events in Warsaw:</b>"
         await callback.message.answer(header)
 
-        for i in range(0, len(items), BATCH_SIZE):
-            batch = items[i : i + BATCH_SIZE]
-            # Collapse internal double-newlines within each item (scraper uses \n\n
-            # between title and description inside one event)
-            text_out = "\n\n".join(batch)
-            if len(text_out) > MAX_MSG:
-                text_out = text_out[:MAX_MSG - 3] + "..."
-            await callback.message.answer(text_out)
+        # Adaptive batching — accumulate items until next one won't fit, then send
+        current: list[str] = []
+        current_len = 0
+        for item in items:
+            added = (2 if current else 0) + len(item)
+            if current and current_len + added > MAX_MSG:
+                await callback.message.answer("\n\n".join(current))
+                current = [item]
+                current_len = len(item)
+            else:
+                current.append(item)
+                current_len += added
+        if current:
+            await callback.message.answer("\n\n".join(current))
 
 
 @router.callback_query(F.data == "menu:events")
