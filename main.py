@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v22-mymemory-1500"
+VERSION = "v23-debug-trans"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -116,12 +116,24 @@ async def handle_health(request: web.Request) -> web.Response:
 async def handle_debug(request: web.Request) -> web.Response:
     pat = os.getenv("GITHUB_PAT", "")
     events = await get_latest_events()
+    # Count cached translations
+    from database.db import get_translation
+    trans_count = 0
+    trans_langs = []
+    if events:
+        for lang in ["en", "pl", "be", "uk", "de"]:
+            t = await get_translation(events[0]["id"], lang)
+            if t:
+                trans_count += 1
+                trans_langs.append(lang)
     return web.json_response({
         "version": VERSION,
         "GITHUB_PAT_set": bool(pat),
         "GITHUB_PAT_prefix": pat[:8] + "..." if pat else "(empty)",
         "events_in_db": len(events),
         "events_text_len": len(events[0]["text"]) if events else 0,
+        "cached_translations": trans_count,
+        "cached_langs": trans_langs,
     })
 
 
