@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v27-seed-from-github"
+VERSION = "v28-updated-messages"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:

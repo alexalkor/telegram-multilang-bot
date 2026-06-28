@@ -16,7 +16,7 @@ async def cmd_start(message: Message) -> None:
     if lang is None:
         # New user — ask to pick a language
         await message.answer(
-            "👋 Welcome! Please choose your language:",
+            "👋 Hi! Welcome to Warsaw Events Bot! Please choose your language:",
             reply_markup=language_keyboard(),
         )
     else:

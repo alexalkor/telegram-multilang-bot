@@ -2,10 +2,11 @@
   "language_set": "✅ Sprache auf Deutsch eingestellt.",
   "help_text": "📖 <b>Hilfe</b>\n\nVerfügbare Befehle:\n/start — Hauptmenü\n/language — Sprache ändern\n/help — diese Nachricht",
   "choose_action": "Weekend event-list from The-Warsaw",
-  "btn_events": "📋 Aktuelle Liste ansehen",
+  "btn_events": "📋 Aktuelle Wochenend-Events in Warschau ansehen",
   "btn_change_lang": "🌐 Sprache ändern",
   "btn_stop": "⛔ Stoppen",
   "stopped": "Bot gestoppt. Sende /start zum Fortfahren.",
   "no_events": "Noch keine Veranstaltungen veröffentlicht.",
-  "events_header": "📅 <b>Neueste Veranstaltungen:</b>"
+  "events_header": "📅 <b>Neueste Veranstaltungen:</b>",
+  "events_footer": "Wir hoffen, du hast ein tolles Wochenende! 🌟"
 }

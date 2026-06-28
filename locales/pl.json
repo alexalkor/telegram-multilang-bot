@@ -2,10 +2,11 @@
   "language_set": "✅ Język ustawiony na polski.",
   "help_text": "📖 <b>Pomoc</b>\n\nDostępne polecenia:\n/start — menu główne\n/language — zmień język\n/help — ta wiadomość",
   "choose_action": "Weekend event-list from The-Warsaw",
-  "btn_events": "📋 Zobacz aktualną listę",
+  "btn_events": "📋 Zobacz najnowsze wydarzenia weekendowe w Warszawie",
   "btn_change_lang": "🌐 Zmień język",
   "btn_stop": "⛔ Zatrzymaj",
   "stopped": "Bot zatrzymany. Wyślij /start, aby wznowić.",
   "no_events": "Brak opublikowanych wydarzeń.",
-  "events_header": "📅 <b>Najnowsze wydarzenia:</b>"
+  "events_header": "📅 <b>Najnowsze wydarzenia:</b>",
+  "events_footer": "Mam nadzieję, że masz świetny weekend! 🌟"
 }

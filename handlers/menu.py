@@ -92,6 +92,9 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
             batch = items[i:i + ITEMS_PER_MSG]
             await callback.message.answer("\n\n".join(batch))
 
+        # Footer after last batch
+        await callback.message.answer(t(lang, "events_footer"))
+
 
 @router.callback_query(F.data == "menu:events")
 async def cb_events(callback: CallbackQuery) -> None:
