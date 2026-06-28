@@ -4,16 +4,16 @@ import aiohttp
 logger = logging.getLogger(__name__)
 
 SOURCE_LANG = "ru"
-CHUNK_SIZE  = 2000   # Google Translate handles up to ~5000 chars comfortably
+CHUNK_SIZE  = 1500   # MyMemory truncates large outputs; 1500 chars ≈ 4 events per call
+MYMEMORY_EMAIL = "bot@thewarsawevents.com"
 
-# Google Translate lang codes (mostly the same as ISO 639-1)
-_GT_CODES = {
-    "ru": "ru",
-    "en": "en",
-    "pl": "pl",
-    "de": "de",
-    "be": "be",
-    "uk": "uk",
+_MYMEMORY_CODES = {
+    "ru": "ru-RU",
+    "en": "en-GB",
+    "pl": "pl-PL",
+    "de": "de-DE",
+    "be": "be-BY",
+    "uk": "uk-UA",
 }
 
 
@@ -30,21 +30,20 @@ def _chunk(text: str, size: int = CHUNK_SIZE) -> list[str]:
     return chunks
 
 
-async def _translate_chunk(session: aiohttp.ClientSession, chunk: str, src: str, tgt: str) -> str:
-    """Translate a single chunk via Google Translate unofficial API."""
-    url = (
-        f"https://translate.googleapis.com/translate_a/single"
-        f"?client=gtx&sl={src}&tl={tgt}&dt=t&q={aiohttp.helpers.requote_uri(chunk)}"
-    )
-    async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-        if resp.status != 200:
-            logger.warning("Google Translate chunk failed: HTTP %s", resp.status)
-            return ""
+async def _translate_chunk(session: aiohttp.ClientSession, chunk: str, langpair: str) -> str:
+    """Translate a single chunk via MyMemory API. Returns empty string on failure."""
+    async with session.post(
+        "https://api.mymemory.translated.net/get",
+        data={"q": chunk, "langpair": langpair, "de": MYMEMORY_EMAIL},
+        timeout=aiohttp.ClientTimeout(total=15),
+    ) as resp:
         data = await resp.json(content_type=None)
-    # data[0] is list of [translated, original, ...] pairs
-    if not data or not data[0]:
-        return ""
-    return "".join(item[0] for item in data[0] if item and item[0])
+    status = data.get("responseStatus", 0)
+    result = data.get("responseData", {}).get("translatedText", "")
+    if status == 200 and result:
+        return result
+    logger.warning("MyMemory chunk failed: status=%s result=%r", status, result[:80] if result else "")
+    return ""
 
 
 async def translate(text: str, target_lang: str) -> str | None:
@@ -53,8 +52,9 @@ async def translate(text: str, target_lang: str) -> str | None:
     if target_lang == SOURCE_LANG or not text.strip():
         return text
 
-    src = _GT_CODES.get(SOURCE_LANG, SOURCE_LANG)
-    tgt = _GT_CODES.get(target_lang, target_lang)
+    src = _MYMEMORY_CODES.get(SOURCE_LANG, SOURCE_LANG)
+    tgt = _MYMEMORY_CODES.get(target_lang, target_lang)
+    langpair = f"{src}|{tgt}"
     chunks = _chunk(text)
 
     try:
@@ -63,15 +63,15 @@ async def translate(text: str, target_lang: str) -> str | None:
             results = []
             for i, chunk in enumerate(chunks):
                 if i > 0:
-                    await _asyncio.sleep(0.3)
-                translated = await _translate_chunk(session, chunk, src, tgt)
+                    await _asyncio.sleep(1)
+                translated = await _translate_chunk(session, chunk, langpair)
                 if not translated:
-                    logger.warning("Google Translate: empty chunk result, aborting %s->%s", src, tgt)
+                    logger.warning("MyMemory: empty chunk result, aborting %s->%s", SOURCE_LANG, target_lang)
                     return None
                 results.append(translated)
         result = "\n".join(results)
-        logger.info("Google Translate OK: %s->%s (%d->%d chars)", src, tgt, len(text), len(result))
+        logger.info("MyMemory OK: %s->%s (%d->%d chars)", SOURCE_LANG, target_lang, len(text), len(result))
         return result
     except Exception as e:
-        logger.warning("Google Translate failed (%s->%s): %s", src, tgt, e)
+        logger.warning("MyMemory failed (%s->%s): %s", SOURCE_LANG, target_lang, e)
         return None
