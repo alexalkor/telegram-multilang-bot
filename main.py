@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v28-updated-messages"
+VERSION = "v29-no-overwrite-better-trans"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -102,6 +102,7 @@ async def _bg_translate(event_id: int, text: str) -> None:
         logger.warning("BG seed from GitHub failed: %s", e)
 
     # Slow path: translate any langs still missing
+    newly_translated = False
     for lang in langs:
         if lang in translations:
             continue  # already seeded from GitHub
@@ -109,14 +110,21 @@ async def _bg_translate(event_id: int, text: str) -> None:
             result = await translate(text, lang)
             if result and result != text:
                 await save_translation(event_id, lang, result)
-                translations[lang] = result
-                logger.info("BG translated %s (%d chars)", lang, len(result))
-                await save_events_data(text, translations)
+                # Only update GitHub if new translation is better than existing
+                existing_len = len(translations.get(lang, ""))
+                if len(result) > existing_len:
+                    translations[lang] = result
+                    newly_translated = True
+                    logger.info("BG translated %s (%d chars)", lang, len(result))
+                else:
+                    logger.info("BG skipped overwrite of %s (existing better: %d > %d)", lang, existing_len, len(result))
             else:
                 logger.warning("BG translation failed for %s", lang)
         except Exception as e:
             logger.warning("BG translation error for %s: %s", lang, e)
         await _asyncio.sleep(2)
+    if newly_translated:
+        await save_events_data(text, translations)
     logger.info("BG: done — %d/%d translations in DB", len(translations), len(langs))
 
 
