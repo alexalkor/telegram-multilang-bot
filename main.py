@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v26-preserve-trans"
+VERSION = "v27-seed-from-github"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -88,21 +88,36 @@ async def _bg_translate(event_id: int, text: str) -> None:
     from utils.translator import translate
     langs = ["en", "pl", "be", "uk", "de"]  # ru is source, no translation needed
     translations: dict = {}
+
+    # Fast path: seed DB from any existing GitHub translations first
+    try:
+        existing = await fetch_events_data()
+        if existing:
+            for lang, txt in existing.get("translations", {}).items():
+                if txt and lang in langs:
+                    await save_translation(event_id, lang, txt)
+                    translations[lang] = txt
+                    logger.info("BG seeded %s from GitHub cache (%d chars)", lang, len(txt))
+    except Exception as e:
+        logger.warning("BG seed from GitHub failed: %s", e)
+
+    # Slow path: translate any langs still missing
     for lang in langs:
+        if lang in translations:
+            continue  # already seeded from GitHub
         try:
             result = await translate(text, lang)
             if result and result != text:
                 await save_translation(event_id, lang, result)
                 translations[lang] = result
                 logger.info("BG translated %s (%d chars)", lang, len(result))
-                # Save after each lang — partial results survive Railway restarts
                 await save_events_data(text, translations)
             else:
                 logger.warning("BG translation failed for %s", lang)
         except Exception as e:
             logger.warning("BG translation error for %s: %s", lang, e)
-        await _asyncio.sleep(2)  # spread load, avoid rate limits
-    logger.info("BG: done — %d/%d translations saved to GitHub", len(translations), len(langs))
+        await _asyncio.sleep(2)
+    logger.info("BG: done — %d/%d translations in DB", len(translations), len(langs))
 
 
 async def handle_clear_cache(request: web.Request) -> web.Response:
