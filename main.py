@@ -14,8 +14,65 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v29-no-overwrite-better-trans"
+VERSION = "v30-auto-emoji"
 
+
+
+def _assign_emojis(text: str) -> str:
+    """Replace generic 🏠 with content-appropriate emoji per event, based on Russian keywords."""
+    import re
+    # Ordered: first match wins. Keywords are lowercase substrings of the event title line.
+    RULES = [
+        (["стендап", "stand-up", "standup", "стэнд-ап", "stand up"],          "🎤"),
+        (["свидани", "blind date"],                                             "💘"),
+        (["варушняк", "varušniak", "kupalle", "купалье"],                      "🔥"),
+        (["ночь купал", "купала на пляж"],                                     "🌊"),
+        (["парусн", "регат", "флот wiślanej"],                                 "⛵"),
+        (["wianki", "wianek", "gocławianki"],                                  "🌿"),
+        (["nightskating", "найтскейтинг"],                                     "🛼"),
+        (["indian summer"],                                                     "🪘"),
+        (["итальянской кухн", "итальянск"],                                    "🍕"),
+        (["стритфуда", "стритфуд", "street food"],                             "🍔"),
+        (["антикварн"],                                                        "🏺"),
+        (["танц"],                                                             "💃"),
+        (["бассейн"],                                                          "🏊"),
+        (["кино под открытым небом", "кинотеатр под"],                        "🎬"),
+        (["vintage market", "винтаж маркет"],                                  "👗"),
+        (["гаражная распродаж"],                                               "🛒"),
+        (["ярмарка растений"],                                                 "🌱"),
+        (["ярмарка завтрак"],                                                  "☕"),
+        (["nocny market", "ночной маркет"],                                    "🌙"),
+        (["прогулка по саду", "сад библиотек", "buw"],                        "🌸"),
+        (["туристическ линии", "туристические лини"],                          "🚃"),
+        (["фонтан", "wielkie serca"],                                          "⛲"),
+        (["body worlds"],                                                      "🧠"),
+        (["пикник"],                                                           "🧺"),
+        (["уличного искусства", "стрит-арт"],                                 "🎨"),
+        (["пивоварн", "browar"],                                               "🍺"),
+        (["иммерсивн", "immersive", "lightshow", "light show", "genesis"],    "✨"),
+        (["мультимедийн"],                                                     "🎭"),
+        (["выставка", "экспозиц"],                                            "🖼"),
+    ]
+
+    def _pick_emoji(title_lower: str) -> str:
+        for keywords, emoji in RULES:
+            if any(kw in title_lower for kw in keywords):
+                return emoji
+        return "🏠"
+
+    def _fix_line(m: "re.Match") -> str:
+        num = m.group(1)
+        title_lower = m.group(3).lower()
+        emoji = _pick_emoji(title_lower)
+        return f"{num}. {emoji} {m.group(3)}"
+
+    # Match lines like "N. 🏠 Title..." — replace the emoji, keep title
+    return re.sub(
+        r"^(\d+)\.\s+[\U0001F000-\U0001FFFF\u2600-\u27BF\u2300-\u23FF\u00AE\u00A9\uFE0F]{1,3}\s+(.+)$",
+        lambda m: f"{m.group(1)}. {_pick_emoji(m.group(2).lower())} {m.group(2)}",
+        text,
+        flags=re.MULTILINE,
+    )
 
 async def handle_post_events(request: web.Request) -> web.Response:
     secret = request.headers.get("X-Secret", "")
@@ -36,6 +93,9 @@ async def handle_post_events(request: web.Request) -> web.Response:
         else:
             event_id = await replace_current_week_events(stored_text)
             full_text = stored_text
+
+        # Apply content-appropriate emojis (replaces generic 🏠)
+        full_text = _assign_emojis(full_text)
 
         # Preserve translations when same events re-posted; clear only on new content
         _existing = await fetch_events_data()
