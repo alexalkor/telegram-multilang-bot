@@ -52,7 +52,7 @@ async def save_events_data(raw: str, translations: dict) -> tuple[int, str]:
         async with aiohttp.ClientSession() as session:
             sha = await _get_sha(session, JSON_PATH)
             body: dict = {
-                "message": "chore: update events [skip deploy]",
+                "message": "chore: update events [skip railway]",
                 "content": encoded,
             }
             if sha:
