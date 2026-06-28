@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v24-fix-parse-batch"
+VERSION = "v25-preserve-translations"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
