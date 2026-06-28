@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v18-skip-railway"
+VERSION = "v19-debug-fix"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -116,14 +116,12 @@ async def handle_health(request: web.Request) -> web.Response:
 async def handle_debug(request: web.Request) -> web.Response:
     pat = os.getenv("GITHUB_PAT", "")
     events = await get_latest_events()
-    cyrillic_test = "1. 🎭 Тест\n📍 Варшава\n🕐 Сегодня\n💰 100 зл"
-    gh_status, gh_msg = await save_events_data(cyrillic_test, {})
     return web.json_response({
         "version": VERSION,
         "GITHUB_PAT_set": bool(pat),
         "GITHUB_PAT_prefix": pat[:8] + "..." if pat else "(empty)",
         "events_in_db": len(events),
-        "github_cyrillic_test": {"status": gh_status, "msg": gh_msg[:200]},
+        "events_text_len": len(events[0]["text"]) if events else 0,
     })
 
 
