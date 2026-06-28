@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v23-debug-trans"
+VERSION = "v23-debug-trans-deploy"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
