@@ -4,7 +4,7 @@ import aiohttp
 logger = logging.getLogger(__name__)
 
 SOURCE_LANG = "ru"
-CHUNK_SIZE  = 4500   # MyMemory hard limit is 5000; stay safe
+CHUNK_SIZE  = 1500   # MyMemory actually truncates large outputs; 1500 keeps ~4 events per call
 MYMEMORY_EMAIL = "bot@thewarsawevents.com"
 
 _MYMEMORY_CODES = {
@@ -59,9 +59,12 @@ async def translate(text: str, target_lang: str) -> str | None:
     chunks = _chunk(text)
 
     try:
+        import asyncio as _asyncio
         async with aiohttp.ClientSession() as session:
             results = []
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
+                if i > 0:
+                    await _asyncio.sleep(1)  # avoid rate-limiting between chunks
                 translated = await _translate_chunk(session, chunk, langpair)
                 if not translated:
                     logger.warning("MyMemory: empty chunk result, aborting %s->%s", SOURCE_LANG, target_lang)
