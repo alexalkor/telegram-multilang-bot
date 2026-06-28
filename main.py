@@ -89,16 +89,14 @@ async def _bg_translate(event_id: int, text: str) -> None:
                 await save_translation(event_id, lang, result)
                 translations[lang] = result
                 logger.info("BG translated %s (%d chars)", lang, len(result))
+                # Save after each lang — partial results survive Railway restarts
+                await save_events_data(text, translations)
             else:
                 logger.warning("BG translation failed for %s", lang)
         except Exception as e:
             logger.warning("BG translation error for %s: %s", lang, e)
         await _asyncio.sleep(2)  # spread load, avoid rate limits
-    # Persist all translations to GitHub
-    events = await get_latest_events()
-    if events and events[0]["id"] == event_id:
-        await save_events_data(text, translations)
-        logger.info("BG: saved %d translations to GitHub", len(translations))
+    logger.info("BG: done — %d/%d translations saved to GitHub", len(translations), len(langs))
 
 
 async def handle_clear_cache(request: web.Request) -> web.Response:
