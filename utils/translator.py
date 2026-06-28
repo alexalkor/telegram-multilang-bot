@@ -69,7 +69,7 @@ async def translate(text: str, target_lang: str) -> str | None:
                     logger.warning("MyMemory: empty chunk result, aborting %s->%s", SOURCE_LANG, target_lang)
                     return None
                 results.append(translated)
-        result = "\n".join(results)
+        result = "\n\n".join(results)
         logger.info("MyMemory OK: %s->%s (%d->%d chars)", SOURCE_LANG, target_lang, len(text), len(result))
         return result
     except Exception as e:

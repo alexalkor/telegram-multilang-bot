@@ -30,8 +30,16 @@ def _parse_events(text: str) -> tuple[str | None, list[str]]:
     else:
         date_range = None
         body = text
-    # Split body only where a new numbered event begins (\n\n followed by digit+dot)
-    items = re.split(r"\n\n(?=\d+\.\s)", body)
+    # Detect date range: also handle single-newline separator (from chunk-join artefacts)
+    if date_range is None and "\n" in body:
+        first_line_split = body.split("\n", 1)
+        if len(first_line_split) == 2 and not re.match(r"^\d+\.\s", first_line_split[0].strip()):
+            # Check if it looks like a date range (short, no event number)
+            if len(first_line_split[0].strip()) < 30:
+                date_range = first_line_split[0].strip()
+                body = first_line_split[1].lstrip("\n")
+    # Split on ANY run of newlines before a new numbered event (handles \n and \n\n join artefacts)
+    items = re.split(r"\n+(?=\d+\.\s)", body)
     # Collapse any remaining internal double-newlines → single newline
     items = [item.replace("\n\n", "\n").strip() for item in items if item.strip()]
     return date_range, items
@@ -78,20 +86,11 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
             header = "📅 <b>Latest events in Warsaw:</b>"
         await callback.message.answer(header)
 
-        # Adaptive batching — accumulate items until next one won't fit, then send
-        current: list[str] = []
-        current_len = 0
-        for item in items:
-            added = (2 if current else 0) + len(item)
-            if current and current_len + added > MAX_MSG:
-                await callback.message.answer("\n\n".join(current))
-                current = [item]
-                current_len = len(item)
-            else:
-                current.append(item)
-                current_len += added
-        if current:
-            await callback.message.answer("\n\n".join(current))
+        # Fixed 10 items per message
+        ITEMS_PER_MSG = 10
+        for i in range(0, len(items), ITEMS_PER_MSG):
+            batch = items[i:i + ITEMS_PER_MSG]
+            await callback.message.answer("\n\n".join(batch))
 
 
 @router.callback_query(F.data == "menu:events")
