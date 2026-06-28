@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v25-preserve-translations"
+VERSION = "v26-preserve-trans"
 
 
 async def handle_post_events(request: web.Request) -> web.Response:
@@ -37,9 +37,15 @@ async def handle_post_events(request: web.Request) -> web.Response:
             event_id = await replace_current_week_events(stored_text)
             full_text = stored_text
 
-        # Save raw to GitHub immediately (no translations yet)
-        gh_status, gh_msg = await save_events_data(full_text, {})
-        logger.info("Event #%d raw saved; GitHub: %d %s", event_id, gh_status, gh_msg[:80])
+        # Preserve translations when same events re-posted; clear only on new content
+        _existing = await fetch_events_data()
+        if _existing and _existing.get("raw", "")[:100] == full_text[:100]:
+            _keep_trans = _existing.get("translations", {})
+        else:
+            _keep_trans = {}
+        gh_status, gh_msg = await save_events_data(full_text, _keep_trans)
+        logger.info("Event #%d raw saved; GitHub: %d %s (kept %d translations)",
+                    event_id, gh_status, gh_msg[:80], len(_keep_trans))
 
         # Translate all languages in the background (takes 30-60s, don't block response)
         import asyncio as _asyncio
