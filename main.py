@@ -14,7 +14,7 @@ from handlers import start, help, language, menu, admin
 
 logger = logging.getLogger(__name__)
 
-VERSION = "v30-auto-emoji"
+VERSION = "v31-emoji-only-house"
 
 
 
@@ -67,12 +67,11 @@ def _assign_emojis(text: str) -> str:
         return f"{num}. {emoji} {m.group(3)}"
 
     # Match lines like "N. 🏠 Title..." — replace the emoji, keep title
-    return re.sub(
-        r"^(\d+)\.\s+[\U0001F000-\U0001FFFF\u2600-\u27BF\u2300-\u23FF\u00AE\u00A9\uFE0F]{1,3}\s+(.+)$",
-        lambda m: f"{m.group(1)}. {_pick_emoji(m.group(2).lower())} {m.group(2)}",
-        text,
-        flags=re.MULTILINE,
-    )
+    # Only replace generic 🏠 — leave scraper-assigned emojis untouched
+    import re as _re
+    def _fix(m):
+        return f"{m.group(1)}. {_pick_emoji(m.group(2).lower())} {m.group(2)}"
+    return _re.sub(r"^(\d+)\.\s+🏠\s+(.+)$", _fix, text, flags=_re.MULTILINE)
 
 async def handle_post_events(request: web.Request) -> web.Response:
     secret = request.headers.get("X-Secret", "")
