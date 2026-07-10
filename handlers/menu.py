@@ -40,15 +40,18 @@ def _parse_events(text: str) -> tuple[str | None, list[str]]:
     items = [item.replace("\n\n", "\n").strip() for item in items if item.strip()]
     return date_range, items
 
-def _chunk_items(items: list[str], max_len: int = MAX_MSG) -> list[str]:
-    """Group items into messages that each stay under Telegram's length limit,
-    instead of a fixed item count (which can overflow on long events)."""
+def _chunk_items(items: list[str], max_len: int = MAX_MSG, max_count: int = BATCH_SIZE) -> list[str]:
+    """Group items into messages of up to max_count items each, but never
+    let a message exceed Telegram's character limit even if that means
+    fewer than max_count items in a given message."""
     chunks: list[str] = []
     current: list[str] = []
     current_len = 0
     for item in items:
-        item_len = len(item) + 2
-        if current and current_len + item_len > max_len:
+        item_len = len(item) + 2  # account for the joiner
+        would_overflow_len = current and current_len + item_len > max_len
+        would_overflow_count = len(current) >= max_count
+        if current and (would_overflow_len or would_overflow_count):
             chunks.append("\n\n".join(current))
             current = []
             current_len = 0
@@ -100,7 +103,9 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
         if not items:
             logger.warning("No parsed items for event #%s (lang=%s)", event["id"], lang)
 
-        for chunk in _chunk_items(items, MAX_MSG):
+        # Batch by item count (BATCH_SIZE) capped by char length, so we
+        # never exceed Telegram's message limit even on long events
+        for chunk in _chunk_items(items, MAX_MSG, BATCH_SIZE):
             try:
                 await callback.message.answer(chunk)
             except Exception:
