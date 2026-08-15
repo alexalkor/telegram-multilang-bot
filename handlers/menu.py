@@ -71,13 +71,31 @@ async def _persist_lang_to_github(lang: str, translated: str) -> None:
     except Exception as e:
         logging.getLogger(__name__).warning("Failed to persist %s translation to GitHub: %s", lang, e)
 
+# Leave headroom in each chunk so a merged header/footer never pushes a
+# message over Telegram's 4096-char hard limit.
+HEADER_FOOTER_MARGIN = 250
+
 async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
+    """Send the latest events and attach the menu keyboard to the very
+    last message instead of sending it as a separate follow-up message.
+
+    Telegram always scrolls a chat to reveal each newly-arrived message,
+    so previously — header, then item batches, then footer, then a whole
+    extra "choose an action" + buttons message — the client would jump
+    straight past the header down to that trailing buttons message.
+    Folding the header into the first chunk and the footer+buttons into
+    the last chunk means far fewer separate messages land after the
+    header, so the view stays much closer to the top of the list instead
+    of falling to the buttons at the bottom.
+    """
     events = await get_latest_events()
     if not events:
         await callback.answer(t(lang, "no_events"), show_alert=True)
         return
 
-    for event in events:
+    footer = t(lang, "events_footer")
+
+    for event_idx, event in enumerate(events):
         translated = await get_translation(event["id"], lang)
 
         if translated is None:
@@ -95,32 +113,39 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
             header = f"📅 <b>Latest events in Warsaw:</b>\n{date_range}"
         else:
             header = "📅 <b>Latest events in Warsaw:</b>"
-        try:
-            await callback.message.answer(header)
-        except Exception:
-            logger.exception("Failed to send events header")
 
         if not items:
             logger.warning("No parsed items for event #%s (lang=%s)", event["id"], lang)
 
         # Batch by item count (BATCH_SIZE) capped by char length, so we
-        # never exceed Telegram's message limit even on long events
-        for chunk in _chunk_items(items, MAX_MSG, BATCH_SIZE):
-            try:
-                await callback.message.answer(chunk)
-            except Exception:
-                logger.exception("Failed to send an events batch for event #%s (lang=%s)", event["id"], lang)
+        # never exceed Telegram's message limit even on long events.
+        # The margin here leaves room to fold the header/footer text in.
+        chunks = _chunk_items(items, MAX_MSG - HEADER_FOOTER_MARGIN, BATCH_SIZE)
+        parts = list(chunks) if chunks else [""]
 
-        try:
-            await callback.message.answer(t(lang, "events_footer"))
-        except Exception:
-            logger.exception("Failed to send events footer")
+        # Fold the header into the first part instead of sending it alone.
+        parts[0] = f"{header}\n\n{parts[0]}" if parts[0] else header
+
+        is_last_event = event_idx == len(events) - 1
+        # Fold the footer into the last part. Only the very last part of
+        # the very last event carries the menu keyboard.
+        parts[-1] = f"{parts[-1]}\n\n{footer}" if parts[-1] else footer
+
+        for part_idx, part in enumerate(parts):
+            is_final_part = is_last_event and part_idx == len(parts) - 1
+            markup = menu_keyboard(lang) if is_final_part else None
+            try:
+                await callback.message.answer(part, reply_markup=markup)
+            except Exception:
+                logger.exception(
+                    "Failed to send events part %s for event #%s (lang=%s)",
+                    part_idx, event["id"], lang,
+                )
 
 @router.callback_query(F.data == "menu:events")
 async def cb_events(callback: CallbackQuery) -> None:
     lang = await get_language(callback.from_user.id) or "en"
     await send_latest_events(callback, lang)
-    await callback.message.answer(t(lang, "choose_action"), reply_markup=menu_keyboard(lang))
     await callback.answer()
 
 @router.callback_query(F.data == "menu:change_lang")
