@@ -2,7 +2,7 @@
   "language_set": "✅ Sprache auf Deutsch eingestellt.",
   "help_text": "📖 <b>Hilfe</b>\n\nVerfügbare Befehle:\n/start — Hauptmenü\n/language — Sprache ändern\n/help — diese Nachricht",
   "choose_action": "Weekend event-list from The-Warsaw",
-  "btn_events": "📋 Aktuelle Wochenend-Events in Warschau ansehen",
+  "btn_events": "📋 Warschauer Wochenend-Events",
   "btn_change_lang": "🌐 Sprache ändern",
   "btn_stop": "⛔ Stoppen",
   "stopped": "Bot gestoppt. Sende /start zum Fortfahren.",
