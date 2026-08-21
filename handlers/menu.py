@@ -40,6 +40,27 @@ def _parse_events(text: str) -> tuple[str | None, list[str]]:
     items = [item.replace("\n\n", "\n").strip() for item in items if item.strip()]
     return date_range, items
 
+def _split_long(text: str, max_len: int) -> list[str]:
+    """Split a single oversized item on line boundaries so that no piece
+    can exceed Telegram's per-message character limit."""
+    pieces: list[str] = []
+    current = ""
+    for line in text.split("\n"):
+        while len(line) > max_len:
+            if current:
+                pieces.append(current)
+                current = ""
+            pieces.append(line[:max_len])
+            line = line[max_len:]
+        if current and len(current) + 1 + len(line) > max_len:
+            pieces.append(current)
+            current = line
+        else:
+            current = f"{current}\n{line}" if current else line
+    if current:
+        pieces.append(current)
+    return pieces
+
 def _chunk_items(items: list[str], max_len: int = MAX_MSG, max_count: int = BATCH_SIZE) -> list[str]:
     """Group items into messages of up to max_count items each, but never
     let a message exceed Telegram's character limit even if that means
@@ -48,6 +69,19 @@ def _chunk_items(items: list[str], max_len: int = MAX_MSG, max_count: int = BATC
     current: list[str] = []
     current_len = 0
     for item in items:
+        if len(item) > max_len:
+            # A single event longer than one message: flush what we have
+            # and split the event itself rather than sending an
+            # over-limit message that Telegram would reject outright.
+            if current:
+                chunks.append("\n\n".join(current))
+                current = []
+                current_len = 0
+            pieces = _split_long(item, max_len)
+            chunks.extend(pieces[:-1])
+            current = [pieces[-1]]
+            current_len = len(pieces[-1]) + 2
+            continue
         item_len = len(item) + 2  # account for the joiner
         would_overflow_len = current and current_len + item_len > max_len
         would_overflow_count = len(current) >= max_count
@@ -131,16 +165,29 @@ async def send_latest_events(callback: CallbackQuery, lang: str) -> None:
         # the very last event carries the menu keyboard.
         parts[-1] = f"{parts[-1]}\n\n{footer}" if parts[-1] else footer
 
+        keyboard_delivered = False
         for part_idx, part in enumerate(parts):
             is_final_part = is_last_event and part_idx == len(parts) - 1
             markup = menu_keyboard(lang) if is_final_part else None
             try:
                 await callback.message.answer(part, reply_markup=markup)
+                if is_final_part:
+                    keyboard_delivered = True
             except Exception:
                 logger.exception(
                     "Failed to send events part %s for event #%s (lang=%s)",
                     part_idx, event["id"], lang,
                 )
+
+        if is_last_event and not keyboard_delivered:
+            # The message carrying the menu keyboard never made it, so the
+            # user would be left with no buttons at all. Send them alone.
+            try:
+                await callback.message.answer(
+                    t(lang, "choose_action"), reply_markup=menu_keyboard(lang)
+                )
+            except Exception:
+                logger.exception("Failed to send fallback menu keyboard (lang=%s)", lang)
 
 @router.callback_query(F.data == "menu:events")
 async def cb_events(callback: CallbackQuery) -> None:
