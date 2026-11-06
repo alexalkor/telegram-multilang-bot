@@ -7,7 +7,7 @@
 // auto-ingest, /myid, and on-demand MyMemory translation.
 //
 // This Worker is the live, production bot (confirmed via Telegram's
-// getWebhookInfo). The Python implementation at the repo root is retired.
+// getWebhookInfo). The Python implementation in legacy/ is retired.
 //
 // Secrets (BOT_TOKEN, GITHUB_PAT, WEBHOOK_SECRET, ADMIN_USER_ID) are never
 // hardcoded here — they come from env, set via `wrangler secret put` or the
@@ -91,7 +91,7 @@ async function saveGithubJson(pat, data) {
   });
 }
 
-// ── Event-text parsing (mirrors database/db.py + handlers/menu.py) ─────────
+// ── Event-text parsing (mirrors legacy/database/db.py + legacy/handlers/menu.py) ─────────
 
 function parseEvents(text) {
   if (!text) return { dateRange: null, items: [] };
@@ -153,7 +153,7 @@ function assignEmoji(text) {
   });
 }
 
-// ── MyMemory translation (mirrors utils/translator.py) ─────────────────────
+// ── MyMemory translation (mirrors legacy/utils/translator.py) ─────────────────────
 
 function chunkForTranslation(text, size = 1500) {
   const firstSplit = text.split('\n\n');
@@ -285,7 +285,7 @@ async function handleUpdate(update, env, ctx) {
     if (cmd === '/myid') { await send(token, chatId, `Your Telegram user ID: <code>${from.id}</code>`); return; }
 
     // Any text from the admin (not a command) replaces the current event —
-    // mirrors handlers/admin.py's manual-post workflow.
+    // mirrors legacy/handlers/admin.py's manual-post workflow.
     if (adminId && from?.id === adminId && text.trim() && !text.startsWith('/')) {
       const fullText = assignEmoji(text);
       const existing = (await getEvent(kv)) || {};

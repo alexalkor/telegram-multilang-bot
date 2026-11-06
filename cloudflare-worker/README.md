@@ -7,8 +7,8 @@ only pasted into the Cloudflare dashboard's "Quick edit" box — not tracked
 anywhere, not backed up, not reviewable. This folder is that code, cleaned
 up and version-controlled.
 
-A second, older implementation of the same bot lives at the repo root
-(`main.py`, Python, talks to Telegram via long-polling instead of a
+A second, older implementation of the same bot lives in `../legacy/`
+(`legacy/main.py`, Python, talks to Telegram via long-polling instead of a
 webhook). Telegram only delivers updates to one of the two at a time, and
 it's this Worker — the Python one is retired.
 
@@ -107,10 +107,13 @@ full contents of `worker.js` from this folder → **Save and deploy**.
 (Alternative, if you ever want a non-dashboard path: the
 [`wrangler` CLI](https://developers.cloudflare.com/workers/wrangler/) with
 `wrangler secret put <NAME>` for each secret above and `wrangler deploy`
-from inside this folder — `wrangler.toml` is already set up for it, you'd
-just need to fill in the KV namespace id.)
+from the repo root (`npm install`, then `npm run deploy`) — the root
+`wrangler.toml` is already set up for it, you'd just need to fill in the KV
+namespace id.)
 
 ## Files here
 
 - `worker.js` — the Worker source (this is what gets deployed).
-- `wrangler.toml` — deploy config, for the CLI path. No secrets in it, ever.
+- `../wrangler.toml` (repo root) — deploy config, for the CLI path. No secrets
+  in it, ever.
+- `../package.json` — pins the `wrangler` version; `dev` / `deploy` / `tail` scripts.
