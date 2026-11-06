@@ -3,8 +3,11 @@
 //
 // This is the git-tracked version of the Worker that used to live only in
 // the Cloudflare dashboard's inline editor. Feature parity with the Python
-// (Railway) implementation in this repo: admin broadcast, channel
+// (long-polling) implementation in this repo: admin broadcast, channel
 // auto-ingest, /myid, and on-demand MyMemory translation.
+//
+// This Worker is the live, production bot (confirmed via Telegram's
+// getWebhookInfo). The Python implementation at the repo root is retired.
 //
 // Secrets (BOT_TOKEN, GITHUB_PAT, WEBHOOK_SECRET, ADMIN_USER_ID) are never
 // hardcoded here — they come from env, set via `wrangler secret put` or the
@@ -77,7 +80,7 @@ async function saveGithubJson(pat, data) {
   if (!r.ok) return;
   const meta = await r.json();
   const body = {
-    message: 'chore: update events [skip railway]',
+    message: 'chore: update events data',
     content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2)))),
     sha: meta.sha,
   };

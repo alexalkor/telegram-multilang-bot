@@ -16,62 +16,58 @@ bot.
    claude.ai Project did this (visiting a source and POSTing the result) —
    being replaced with a Claude Code scheduled task, still controllable from
    the Claude app or phone.
-3. **Storage**: the event text + its per-language translations are cached
-   (SQLite on Railway / KV on Cloudflare) and backed up to this repo at
-   `data/events.json` via the GitHub API, so a redeploy doesn't lose data.
+3. **Storage**: the event text + its per-language translations live in
+   Cloudflare Workers KV, backed up to this repo at `data/events.json` via
+   the GitHub API, so nothing is lost if the Worker's KV ever needs clearing.
 4. **Translation**: MyMemory API (free), called on demand per language,
    cached afterwards so it's only paid for once per language per event.
 5. **Delivery**: user presses "Warsaw weekend events" in Telegram → bot reads
    the cached event, translates if needed, sends it in chunks (Telegram has
    a ~4096-char message limit), re-attaches the menu keyboard.
 
-## Two implementations exist — know which is live before changing either
-- **`main.py` + friends (root of repo)** — Python/aiogram, meant for Railway,
-  talks to Telegram via **long-polling**. Full feature set: admin broadcast,
-  auto-ingest from the channel, on-demand translation.
-- **`cloudflare-worker/worker.js`** — JavaScript, meant for Cloudflare
-  Workers, talks to Telegram via a **webhook**. Was a part-finished migration
-  off Railway; now has feature parity after this repo was cleaned up (see
-  `cloudflare-worker/README.md` for the full history and a safe, read-only
-  way to check which one Telegram is actually delivering updates to).
-- Telegram only delivers to **one** of long-polling or webhook at a time —
-  never both. Before changing deploy/webhook config, check `getWebhookInfo`
-  (see `cloudflare-worker/README.md`) rather than assuming.
-- Current direction (per Alex, Nov 2026): consolidate onto Cloudflare +
-  git, retire Railway. Don't flip the live webhook or decommission Railway
-  without an explicit go-ahead in the moment — it's user-facing.
+## Current production system: the Cloudflare Worker
+`cloudflare-worker/worker.js` is the live bot — confirmed via Telegram's
+`getWebhookInfo` (Nov 2026): the webhook points at
+`warsaw-events-worker.alexandr130514.workers.dev/webhook`. See
+`cloudflare-worker/README.md` for what it is, how it's deployed, and the
+read-only way to re-check this if it's ever in doubt.
+
+A second, older implementation (`main.py` + `handlers/`, `database/`,
+`keyboards/`, `utils/`, `locales/` at the repo root) talks to Telegram via
+long-polling instead of a webhook. Telegram only delivers to one of the two
+at a time, so **this Python implementation is retired / not currently
+serving users** — it's kept in the repo for reference only until a decision
+is made on whether to delete it outright (see "To confirm later").
 
 ## Where things live
+- `cloudflare-worker/` — the live implementation + its own README.
 - `main.py`, `handlers/`, `database/`, `keyboards/`, `utils/`, `locales/` —
-  the Python/Railway implementation.
-- `cloudflare-worker/` — the Cloudflare Worker implementation + its own README.
-- `data/events.json` — shared GitHub-backed cache both implementations read
-  and write. `data/events.txt` is a legacy fallback, no longer primary.
-- `config/settings.py` — env vars the Python bot needs (`BOT_TOKEN`,
-  `WEBHOOK_SECRET`, `GITHUB_PAT`, `ADMIN_USER_ID`, `GITHUB_REPO`).
+  the retired long-polling implementation.
+- `data/events.json` — GitHub-backed cache the live Worker reads and writes.
+  `data/events.txt` is an older legacy fallback, no longer used.
 
 ## Rules for every session
 1. This repo is **public** on GitHub. Never commit a real token, API key, or
    webhook secret — not in code, not in `wrangler.toml`, not in a config
-   file. Secrets are env vars (`.env`, gitignored) on Railway, or Cloudflare
-   "secret" bindings (`wrangler secret put`) — never plain `[vars]`.
-2. Don't guess which deployment (Railway vs Cloudflare) is currently live —
-   check `getWebhookInfo`, or ask.
-3. A change that could affect real users right now (setWebhook, stopping
-   Railway, clearing the KV/GitHub cache, changing the bot token) needs an
-   explicit go-ahead first, even if a prior message approved something
-   similar.
-4. When porting a feature between the two implementations, update both this
-   file's "Two implementations exist" section and `cloudflare-worker/README.md`
-   if the facts changed (which one has parity, which is live, etc.) — don't
-   let them drift out of sync again like the original Worker did.
+   file. Secrets are Cloudflare "secret" bindings (`wrangler secret put`, or
+   the dashboard's Settings → Variables with "Encrypt" on) — never plain
+   `[vars]` or a literal in `worker.js`.
+2. Don't assume which system is live without checking — see
+   `cloudflare-worker/README.md`'s `getWebhookInfo` instructions.
+3. A change that could affect real users right now (setWebhook, deploying
+   over the live Worker, clearing KV/GitHub cache, changing the bot token)
+   needs an explicit go-ahead first, even if a prior message approved
+   something similar.
+4. Keep this file and `cloudflare-worker/README.md` in sync with reality —
+   don't let documentation describe a system that's no longer true, the way
+   the original undocumented Worker drifted from the Python bot.
 
 ## To confirm later
-- Final call: Cloudflare-only, or keep Railway too? (leaning Cloudflare + git,
-  not decided as of Nov 2026)
+- Whether to delete the retired long-polling implementation outright, or
+  keep it around as reference/fallback.
 - Where the weekly Russian source text should come from going forward once
-  the scheduled task replaces the old claude.ai Project task
+  the scheduled task replaces the old claude.ai Project task.
 - Whether this bot becomes an alkor.dev module (see `alexalkor/alkordev`
   repo's `modules/registry.md` — it's currently listed inconsistently there,
   once as "The-Warsaw Weekend Events Bot" (live) and once as "Telegram
-  Multilang Bot" (backlog) — same project, needs cleanup)
+  Multilang Bot" (backlog) — same project, needs cleanup).
