@@ -8,7 +8,7 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
-REPO    = os.getenv("GITHUB_REPO", "alexalkor/telegram-multilang-bot")
+REPO    = os.getenv("GITHUB_REPO", "alexalkor/thewarsaw-bot")
 JSON_PATH = "data/events.json"   # raw text + all translations
 API_BASE  = "https://api.github.com"
 

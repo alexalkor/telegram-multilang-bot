@@ -1,6 +1,12 @@
-# Telegram Multilang Bot
+# Warsaw Events Bot
 
-A Telegram bot built with Python and aiogram 3.x that supports 5 languages: English, Polish, Russian, Belarusian, and Ukrainian.
+> **Start with [`CLAUDE.md`](CLAUDE.md)** for the current state of this
+> project. The live, production bot is the Cloudflare Worker in
+> [`cloudflare-worker/`](cloudflare-worker/README.md) — the Python
+> implementation documented below (`main.py` + `handlers/`, `database/`,
+> `keyboards/`, `utils/`, `locales/`) is **retired**, kept only for
+> reference. It talks to Telegram via long-polling and supports 6
+> languages: English, Polish, Russian, Belarusian, Ukrainian, and German.
 
 ## Project structure
 
@@ -24,7 +30,8 @@ A Telegram bot built with Python and aiogram 3.x that supports 5 languages: Engl
 │   ├── pl.json
 │   ├── ru.json
 │   ├── be.json
-│   └── uk.json
+│   ├── uk.json
+│   └── de.json
 └── utils/
     └── i18n.py           # Translation loader
 ```
