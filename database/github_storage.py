@@ -1,4 +1,4 @@
-"""GitHub-backed persistence for events + translations (survives Railway redeploys)."""
+"""GitHub-backed persistence for events + translations (survives redeploys)."""
 import base64
 import json
 import logging
@@ -52,7 +52,7 @@ async def save_events_data(raw: str, translations: dict) -> tuple[int, str]:
         async with aiohttp.ClientSession() as session:
             sha = await _get_sha(session, JSON_PATH)
             body: dict = {
-                "message": "chore: update events [skip railway]",
+                "message": "chore: update events data",
                 "content": encoded,
             }
             if sha:

@@ -5,3 +5,8 @@ __pycache__/
 bot.db
 bot.db-journal
 *.db-journal
+
+# Cloudflare Worker local dev secrets / cache — never commit these
+cloudflare-worker/.dev.vars
+cloudflare-worker/.wrangler/
+node_modules/

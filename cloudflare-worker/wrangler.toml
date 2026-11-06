@@ -1,0 +1,16 @@
+name = "warsaw-events-bot"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Fill in the KV namespace id from `wrangler kv namespace list` or the
+# dashboard (Workers & Pages → KV). The binding name (EVENTS_KV) must match
+# what worker.js expects — do not rename it without updating worker.js too.
+kv_namespaces = [
+  { binding = "EVENTS_KV", id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
+]
+
+# No [vars] block on purpose: every value this Worker needs (BOT_TOKEN,
+# GITHUB_PAT, WEBHOOK_SECRET, ADMIN_USER_ID, CHANNEL_USERNAME) is a secret
+# or secret-like and must be set with `wrangler secret put <NAME>` or the
+# dashboard's Settings → Variables ("Encrypt" toggle) — never written here,
+# because this file is committed to a PUBLIC repo.
