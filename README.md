@@ -55,8 +55,8 @@ npm run deploy       # deploys to Cloudflare — this updates the LIVE bot
 npm run tail         # live logs from the deployed Worker
 ```
 
-`wrangler.toml` still has a placeholder KV namespace id — replace it with the
-real one (`npx wrangler kv namespace list`) before using `npm run deploy`.
+`wrangler.toml` points at the live `warsaw_events_kv` namespace (binding
+`EVENTS_KV`). Note that `npm run deploy` replaces the live Worker's code.
 
 ## Running the legacy Python bot (retired — reference only)
 
