@@ -32,17 +32,24 @@ bot.
 `cloudflare-worker/README.md` for what it is, how it's deployed, and the
 read-only way to re-check this if it's ever in doubt.
 
-A second, older implementation (`main.py` + `handlers/`, `database/`,
-`keyboards/`, `utils/`, `locales/` at the repo root) talks to Telegram via
+A second, older implementation (everything under `legacy/`: `main.py`,
+`handlers/`, `database/`, `keyboards/`, `utils/`, `locales/`) talks to Telegram via
 long-polling instead of a webhook. Telegram only delivers to one of the two
 at a time, so **this Python implementation is retired / not currently
 serving users** — it's kept in the repo for reference only until a decision
 is made on whether to delete it outright (see "To confirm later").
 
 ## Where things live
-- `cloudflare-worker/` — the live implementation + its own README.
-- `main.py`, `handlers/`, `database/`, `keyboards/`, `utils/`, `locales/` —
-  the retired long-polling implementation.
+- `cloudflare-worker/` — the live implementation (`worker.js`) + its own README.
+- `wrangler.toml`, `package.json` (repo root) — Worker deploy config and the
+  pinned `wrangler` version (`npm run dev` / `deploy` / `tail`). The KV
+  namespace id in `wrangler.toml` is still a placeholder — `npm run deploy`
+  won't work until the real id is filled in.
+- `legacy/` — the retired long-polling implementation (`main.py`, `handlers/`,
+  `database/`, `keyboards/`, `utils/`, `locales/`, `requirements.txt`). Kept in
+  its own folder so a root-level `requirements.txt` can't trigger a Python
+  `pip install` in Cloudflare Workers Builds. Run it from inside `legacy/`.
+- `LICENSE` — MIT.
 - `data/events.json` — GitHub-backed cache the live Worker reads and writes.
   `data/events.txt` is an older legacy fallback, no longer used.
 

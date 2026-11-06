@@ -7,6 +7,6 @@ bot.db-journal
 *.db-journal
 
 # Cloudflare Worker local dev secrets / cache — never commit these
-cloudflare-worker/.dev.vars
-cloudflare-worker/.wrangler/
+.dev.vars
+.wrangler/
 node_modules/

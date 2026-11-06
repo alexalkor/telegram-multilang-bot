@@ -1,0 +1,13 @@
+{
+  "name": "warsaw-events-worker",
+  "private": true,
+  "description": "Cloudflare Worker: Warsaw weekend events Telegram bot (6 languages, KV + GitHub-backed cache)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.158.0"
+  }
+}

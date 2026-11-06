@@ -1,3 +1,6 @@
+# LEGACY — retired long-polling bot, NOT deployed or serving users.
+# The live bot is the Cloudflare Worker in ../cloudflare-worker/worker.js.
+# Kept for reference only. To run it anyway: `cd legacy`, then see ../README.md.
 import asyncio
 import logging
 import os
