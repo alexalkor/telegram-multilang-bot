@@ -2,13 +2,12 @@ name = "warsaw-events-worker"
 main = "cloudflare-worker/worker.js"
 compatibility_date = "2024-01-01"
 
-# Fill in the KV namespace id from `wrangler kv namespace list` or the
-# dashboard (Workers & Pages → KV). The binding name (EVENTS_KV) must match
+# KV namespace id: see `wrangler kv namespace list` or the dashboard
+# (Storage & Databases → KV). The binding name (EVENTS_KV) must match
 # what worker.js expects — do not rename it without updating worker.js too.
-# NOTE: this is still a placeholder — `wrangler deploy` will fail until it is
-# replaced with the real id (a KV id is an identifier, not a secret).
+# The id below is the `warsaw_events_kv` namespace (an identifier, not a secret).
 kv_namespaces = [
-  { binding = "EVENTS_KV", id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
+  { binding = "EVENTS_KV", id = "7704bd09b5a247d7ba1062e0197db1a7" }
 ]
 
 # No [vars] block on purpose: every value this Worker needs (BOT_TOKEN,

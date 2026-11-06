@@ -43,8 +43,10 @@ is made on whether to delete it outright (see "To confirm later").
 - `cloudflare-worker/` — the live implementation (`worker.js`) + its own README.
 - `wrangler.toml`, `package.json` (repo root) — Worker deploy config and the
   pinned `wrangler` version (`npm run dev` / `deploy` / `tail`). The KV
-  namespace id in `wrangler.toml` is still a placeholder — `npm run deploy`
-  won't work until the real id is filled in.
+  namespace id in `wrangler.toml` is the real `warsaw_events_kv` one, so
+  `npm run deploy` overwrites the LIVE Worker — needs an explicit go-ahead
+  (rule 3 below). Workers Builds is not connected to this repo (checked in
+  the Cloudflare dashboard, Nov 2026): nothing auto-deploys from GitHub.
 - `legacy/` — the retired long-polling implementation (`main.py`, `handlers/`,
   `database/`, `keyboards/`, `utils/`, `locales/`, `requirements.txt`). Kept in
   its own folder so a root-level `requirements.txt` can't trigger a Python
