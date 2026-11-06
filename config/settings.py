@@ -14,4 +14,4 @@ ADMIN_USER_ID: int = int(os.getenv("ADMIN_USER_ID", "0"))
 
 GITHUB_PAT: str  = os.getenv("GITHUB_PAT", "")
 MYMEMORY_EMAIL: str = os.getenv("MYMEMORY_EMAIL", "bot@thewarsawevents.com")
-GITHUB_REPO: str = os.getenv("GITHUB_REPO", "alexalkor/telegram-multilang-bot")
+GITHUB_REPO: str = os.getenv("GITHUB_REPO", "alexalkor/thewarsaw-bot")

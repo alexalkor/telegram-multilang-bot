@@ -13,7 +13,7 @@
 // hardcoded here — they come from env, set via `wrangler secret put` or the
 // dashboard's Settings → Variables (encrypted). See README.md in this folder.
 
-const GITHUB_REPO        = 'alexalkor/telegram-multilang-bot';
+const GITHUB_REPO        = 'alexalkor/thewarsaw-bot';
 const GITHUB_EVENTS_FILE = 'data/events.json';
 const DEFAULT_CHANNEL    = 'thewarsawevents';
 const ITEMS_PER_MSG      = 10;
